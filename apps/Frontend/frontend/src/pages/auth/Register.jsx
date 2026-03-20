@@ -9,7 +9,7 @@ export default function Register() {
     email: '', 
     password: '', 
     phone: '', 
-    role: 'CUSTOMER' 
+    role: 'CUSTOMER' // Defaults to customer
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,15 +21,14 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Sending data to Spring Boot backend
       const response = await register(formData);
       if (response.success) {
-        loginUser(response.data); // Log them in immediately after register
+        // Backend returns the registered user data including their new role
+        loginUser(response.data); 
       }
     } catch (err) {
-      // Friendly error handling if the backend is turned off
       if (err.message === 'Network Error') {
-        setError('Cannot connect to server. Please ensure your Spring Boot user-service is running on port 8081.');
+        setError('Cannot connect to server. Please ensure your Spring Boot user-service is running.');
       } else {
         setError(err.response?.data?.message || 'Registration failed. Please try again.');
       }
@@ -39,46 +38,55 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#eaeaea] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#eaeaea] p-4 py-12">
       <div className="bg-white p-10 rounded-[2rem] shadow-2xl w-full max-w-md">
         
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-black text-brand-orange italic mb-4">Digital Maître D'</h1>
           <h2 className="text-3xl font-extrabold text-brand-dark mb-2">Create an account</h2>
-          <p className="text-gray-500 text-sm">Please enter your details to get started.</p>
+          <p className="text-gray-500 text-sm">Join the exclusive circle of culinary enthusiasts.</p>
         </div>
 
-        {/* Error Message Display */}
+        {/* Premium Role Toggle */}
+        <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
+          <button 
+            type="button"
+            onClick={() => setFormData({...formData, role: 'CUSTOMER'})}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.role === 'CUSTOMER' ? 'bg-white text-brand-orange shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Dining Customer
+          </button>
+          <button 
+            type="button"
+            onClick={() => setFormData({...formData, role: 'OWNER'})}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${formData.role === 'OWNER' ? 'bg-white text-brand-orange shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Restaurant Owner
+          </button>
+        </div>
+
         {error && (
           <div className="bg-red-50 text-red-500 p-4 rounded-xl mb-6 text-sm text-center border border-red-100 font-medium">
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
             <input 
-              type="text" 
-              placeholder="Maître D'John Doe" 
-              required
+              type="text" placeholder="Maître D'John Doe" required
               className="w-full bg-gray-100 text-gray-800 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all"
-              value={formData.fullName} 
-              onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
+              value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
             />
           </div>
           
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
             <input 
-              type="email" 
-              placeholder="john@maitred.com" 
-              required
+              type="email" placeholder="john@maitred.com" required
               className="w-full bg-gray-100 text-gray-800 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all"
-              value={formData.email} 
-              onChange={(e) => setFormData({...formData, email: e.target.value})} 
+              value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} 
             />
           </div>
 
@@ -86,37 +94,19 @@ export default function Register() {
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone</label>
               <input 
-                type="text" 
-                placeholder="+1 (555) 000-0000" 
-                required
+                type="text" placeholder="+1 (555) 000" required
                 className="w-full bg-gray-100 text-gray-800 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all"
-                value={formData.phone} 
-                onChange={(e) => setFormData({...formData, phone: e.target.value})} 
+                value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} 
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Password</label>
               <input 
-                type="password" 
-                placeholder="••••••••" 
-                required
+                type="password" placeholder="••••••••" required
                 className="w-full bg-gray-100 text-gray-800 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all"
-                value={formData.password} 
-                onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} 
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-2">Account Type</label>
-            <select 
-              className="w-full bg-gray-100 text-gray-800 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-orange/50 transition-all appearance-none cursor-pointer font-medium"
-              value={formData.role} 
-              onChange={(e) => setFormData({...formData, role: e.target.value})}
-            >
-              <option value="CUSTOMER">Dining Customer</option>
-              <option value="OWNER">Restaurant Owner</option>
-            </select>
           </div>
 
           <div className="flex items-start pt-2 mb-2">
@@ -126,11 +116,7 @@ export default function Register() {
             </label>
           </div>
 
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full bg-brand-orange text-white font-bold py-4 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 mt-4 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={isLoading} className="w-full bg-brand-orange text-white font-bold py-4 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 mt-4 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
             {isLoading ? 'Processing...' : 'Create Account →'}
           </button>
         </form>

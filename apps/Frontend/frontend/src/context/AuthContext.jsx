@@ -8,9 +8,11 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if logged in on app load
+    // Check if user is already logged in when they refresh the page
     const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(JSON.parse(storedUser));
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
   }, []);
 
   const loginUser = (userData) => {
@@ -18,9 +20,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('token', userData.token);
     
-    // Route based on role (CUSTOMER or OWNER)
-    if (userData.role === 'OWNER') navigate('/owner/orders');
-    else navigate('/dashboard');
+    // STRICT ROUTING: Spring Boot returns the exact role ('CUSTOMER' or 'OWNER')
+    if (userData.role === 'OWNER') {
+      navigate('/owner/orders');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const logoutUser = () => {
