@@ -179,7 +179,7 @@ export default function CustomerDashboard() {
         {/* The Chef's Selection (Heroic feature layout) */}
         <section className="mb-32">
           <div className="flex items-center gap-4 mb-12 px-2">
-            <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">Maître D's Selection</h2>
+            <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">Maitre D's Selection</h2>
             <div className="h-px bg-[#e5e7eb] flex-1 mt-2"></div>
             <Link to="/explore" className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] hover:text-[#1f2937] transition-colors flex items-center gap-1 mt-2">
               View Entire Menu <ChevronRight size={16} strokeWidth={3} />
