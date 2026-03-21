@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Search, Bell, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getAllMenuItems } from "../../services/menuService";
 
 export default function CustomerDashboard() {
   const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate(); // Added useNavigate for programmatic routing
   
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -101,11 +102,13 @@ export default function CustomerDashboard() {
               <Link to="/customer/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'} flex flex-col after:w-full after:h-0.5 after:bg-[#d05322] after:mt-1`}>
                 Explore
               </Link>
-              <Link to="/customer/orders" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
-                Orders
+              {/* UPDATED: Navigates to the Menu for ordering */}
+              <Link to="/menu" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
+                Order Now
               </Link>
-              <Link to="/favorites" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
-                Favorites
+              {/* UPDATED: Navigates to past Order History */}
+              <Link to="/order-history" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
+                History
               </Link>
             </nav>
           </div>
@@ -156,8 +159,12 @@ export default function CustomerDashboard() {
               placeholder="What are you craving today?" 
               className="flex-1 px-4 py-4 lg:py-5 outline-none bg-transparent text-[16px] font-semibold text-white group-focus-within:text-[#1f2937] placeholder:text-white/60 group-focus-within:placeholder:text-[#9ca3af] transition-colors"
             />
-            <button className="rounded-full bg-[#d05322] px-8 lg:px-10 py-4 lg:py-5 text-[14px] font-bold tracking-widest text-white uppercase transition-all hover:bg-[#b84318] hover:scale-105 shadow-[0_0_20px_rgba(208,83,34,0.4)]">
-              Find Food
+            {/* UPDATED: Route straight to the menu to order */}
+            <button 
+              onClick={() => navigate('/menu')}
+              className="rounded-full bg-[#d05322] px-8 lg:px-10 py-4 lg:py-5 text-[14px] font-bold tracking-widest text-white uppercase transition-all hover:bg-[#b84318] hover:scale-105 shadow-[0_0_20px_rgba(208,83,34,0.4)]"
+            >
+              Order Now
             </button>
           </div>
         </div>
@@ -218,8 +225,9 @@ export default function CustomerDashboard() {
               {selectedCategory === "All" ? "Full Collection" : `${selectedCategory} Selection`}
             </h2>
             <div className="h-px bg-[#e5e7eb] flex-1 mt-2"></div>
-            <Link className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] flex items-center gap-1 mt-2">
-              {filteredItems.length} Items
+            {/* UPDATED: Navigates straight to menu */}
+            <Link to="/menu" className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] hover:text-[#1f2937] transition-colors flex items-center gap-1 mt-2">
+              Order Now <ChevronRight size={16} strokeWidth={3} />
             </Link>
           </div>
           
@@ -255,7 +263,11 @@ export default function CustomerDashboard() {
                       
                       <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#f3f4f6]">
                          <span className="text-[24px] font-black text-[#1f2937]">${item.price.toFixed(2)}</span>
-                         <button className="w-12 h-12 rounded-full bg-[#f3f4f6] text-[#1f2937] flex items-center justify-center group-hover:bg-[#d05322] group-hover:text-white transition-all transform group-hover:rotate-12 shadow-sm">
+                         {/* UPDATED: Clicking add button redirects to the actual order page with the cart functionality */}
+                         <button 
+                           onClick={() => navigate('/menu')}
+                           className="w-12 h-12 rounded-full bg-[#f3f4f6] text-[#1f2937] flex items-center justify-center group-hover:bg-[#d05322] group-hover:text-white transition-all transform group-hover:rotate-12 shadow-sm"
+                         >
                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                          </button>
                       </div>
