@@ -1,67 +1,41 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, User, Bell, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import { 
   getAllMenuItems, 
   createMenuItem, 
   updateMenuItem, 
   deleteMenuItem 
 } from "../../services/menuService";
+import { useAuth } from "../../context/AuthContext";
 
 export default function MenuManagement() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logout } = useAuth();
+  const currentPath = location.pathname;
+
   const [menuItems, setMenuItems] = useState([]);
+  // --- NEW: Dynamic Categories State ---
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [activeCategory, setActiveCategory] = useState("Starters");
+  const [activeCategory, setActiveCategory] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: "Starters",
+    category: "",
     price: "",
     available: true
   });
   const [imageFile, setImageFile] = useState(null);
 
-  // Mock Categories and data for visuals
-  const categories = [
-    { name: "Starters", count: 12 },
-    { name: "Main Course", count: 24 },
-    { name: "Desserts", count: 8 },
-    { name: "Beverages", count: 18 }
-  ];
-
-  // Dummy fallback data if API is empty
-  const dummyItems = [
-    {
-      id: "1",
-      name: "Truffle Fries",
-      description: "Crispy fries with truffle oil and parmesan.",
-      price: 12.00,
-      available: true,
-      category: "Starters",
-      imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=200&q=80"
-    },
-    {
-      id: "2",
-      name: "Wagyu Sliders",
-      description: "Three mini wagyu beef sliders with brioche buns.",
-      price: 28.00,
-      available: true,
-      category: "Starters",
-      imageUrl: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=200&q=80"
-    },
-    {
-      id: "3",
-      name: "Oysters Rockefeller",
-      description: "Half dozen baked oysters with spinach and hollandaise.",
-      price: 24.00,
-      available: false,
-      category: "Starters",
-      imageUrl: "https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&w=200&q=80"
-    }
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   useEffect(() => {
     fetchMenuItems();
@@ -71,19 +45,55 @@ export default function MenuManagement() {
     try {
       const response = await getAllMenuItems();
       if (response.success && response.data.length > 0) {
-        setMenuItems(response.data);
+        const items = response.data;
+        setMenuItems(items);
+        
+        // --- NEW: Dynamically calculate categories and counts ---
+        const categoryMap = new Map();
+        
+        items.forEach(item => {
+          const catName = item.category || "Uncategorized";
+          if (categoryMap.has(catName)) {
+            categoryMap.set(catName, categoryMap.get(catName) + 1);
+          } else {
+            categoryMap.set(catName, 1);
+          }
+        });
+
+        // Convert Map to Array for rendering
+        const dynamicCategories = Array.from(categoryMap, ([name, count]) => ({ name, count }));
+        
+        // Sort alphabetically
+        dynamicCategories.sort((a, b) => a.name.localeCompare(b.name));
+        
+        setCategories(dynamicCategories);
+
+        // Set the active category to the first one in the list if none is selected
+        if (dynamicCategories.length > 0) {
+          setActiveCategory(prev => {
+             // If a category was already selected and it exists in the new list, keep it.
+             if (prev && dynamicCategories.some(c => c.name === prev)) return prev;
+             // Otherwise, default to the first category
+             return dynamicCategories[0].name;
+          });
+          
+          setFormData(prev => ({ ...prev, category: prev.category || dynamicCategories[0].name }));
+        }
+
       } else {
-        setMenuItems(dummyItems); // Using dummy data for display purposes
+        setMenuItems([]); 
+        setCategories([]);
       }
     } catch (err) {
-      setMenuItems(dummyItems);
-      console.log("Using fallback data due to fetch error");
+      console.error("Fetch error", err);
+      setMenuItems([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const currentCategoryItems = menuItems.filter(item => item.category === activeCategory);
+  const currentCategoryItems = menuItems.filter(item => (item.category || "Uncategorized") === activeCategory);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -104,7 +114,7 @@ export default function MenuManagement() {
     const formDataObj = new FormData();
     formDataObj.append("name", formData.name);
     formDataObj.append("description", formData.description);
-    formDataObj.append("category", formData.category);
+    formDataObj.append("category", formData.category || "Uncategorized"); // Ensure a category is set
     formDataObj.append("price", formData.price);
     formDataObj.append("available", formData.available);
     if (imageFile) {
@@ -112,23 +122,34 @@ export default function MenuManagement() {
     }
 
     try {
-      let response;
       if (editingItem) {
-        response = await updateMenuItem(editingItem.id, formDataObj);
+        await updateMenuItem(editingItem.id, formDataObj);
       } else {
-        response = await createMenuItem(formDataObj);
+        await createMenuItem(formDataObj);
       }
-
-      if (response && response.success) {
-        fetchMenuItems();
-        resetForm();
-      } else {
-        // Mock successful save for demo
-        fetchMenuItems();
-        resetForm();
-      }
+      fetchMenuItems();
+      resetForm();
     } catch (err) {
       setError(editingItem ? "Failed to update item" : "Failed to create item");
+    }
+  };
+
+  const handleToggleAvailability = async (item) => {
+    try {
+      setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, available: !i.available } : i));
+      
+      const formDataObj = new FormData();
+      formDataObj.append("name", item.name);
+      formDataObj.append("description", item.description);
+      formDataObj.append("category", item.category);
+      formDataObj.append("price", item.price);
+      formDataObj.append("available", !item.available);
+      
+      await updateMenuItem(item.id, formDataObj);
+      fetchMenuItems(); 
+    } catch (err) {
+      console.error("Failed to toggle availability", err);
+      fetchMenuItems(); 
     }
   };
 
@@ -152,7 +173,6 @@ export default function MenuManagement() {
       if (response && response.success) {
         fetchMenuItems();
       } else {
-        // Mock delete
         setMenuItems(prev => prev.filter(i => i.id !== id));
       }
     } catch (err) {
@@ -166,7 +186,7 @@ export default function MenuManagement() {
     setFormData({
       name: "",
       description: "",
-      category: activeCategory,
+      category: activeCategory || (categories.length > 0 ? categories[0].name : ""),
       price: "",
       available: true
     });
@@ -174,7 +194,6 @@ export default function MenuManagement() {
     setError("");
   };
 
-  // Safe image URL rendering
   const getImageUrl = (url) => {
     if (!url) return "https://via.placeholder.com/200?text=No+Image";
     if (url.startsWith('http')) return url;
@@ -183,45 +202,37 @@ export default function MenuManagement() {
 
   return (
     <div className="min-h-screen bg-[#fafaf9] font-sans flex flex-col items-center">
-      <div className="w-full max-w-[1440px] px-8 py-6 flex flex-col flex-1">
-        
-        {/* Header Navigation */}
-        <header className="flex items-center justify-between mb-12">
+      
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-sm py-4 border-b border-gray-100">
+        <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
           <div className="flex items-center gap-16">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-[#1f2937] tracking-wider uppercase">
-                Bistro Luxe
+            <Link to="/owner/dashboard">
+              <h1 className="text-xl md:text-2xl font-black italic tracking-tighter text-[#1f2937] transition-colors hover:text-[#d05322]">
+                Digital Maitre D
               </h1>
-              <span className="text-[11px] font-semibold text-[#6b7280] uppercase tracking-widest bg-gray-200/50 px-2 py-1 rounded-md">
-                Admin Portal
-              </span>
-            </div>
+            </Link>
             
-            <nav className="hidden md:flex items-center gap-10">
-              <Link to="/owner/dashboard" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Dashboard
-              </Link>
-              <Link to="/owner/orders" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Live Orders
-              </Link>
-              <Link to="/owner/menu" className="text-[13px] font-bold text-[#d05322] border-b-2 border-[#d05322] pb-1">
-                Menu Editor
-              </Link>
+            <nav className="hidden lg:flex items-center gap-10">
+              <Link to="/owner/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/dashboard' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Dashboard</Link>
+              <Link to="/owner/orders" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/orders' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Live Orders</Link>
+              <Link to="/owner/menu" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/menu' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Menu Editor</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-[#6b7280] hover:text-[#1f2937] transition-colors">
-              <Bell size={20} strokeWidth={2.5} />
-            </button>
-            <button className="h-9 w-9 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:text-[#1f2937] transition-colors overflow-hidden border border-[#e5e7eb]">
-              <User size={18} strokeWidth={2.5} />
-            </button>
+            <button className="text-[#6b7280] hover:text-[#d05322] transition-colors relative"><Bell size={20} strokeWidth={2.5} /><div className="absolute top-0 right-0 w-2 h-2 bg-[#d05322] rounded-full border-2 border-white"></div></button>
+            <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
+            <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
+            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Top Controls: Search & Filters */}
-        <div className="flex items-center justify-between mb-8">
+      <div className="h-[80px] w-full"></div>
+
+      <div className="w-full max-w-[1440px] px-8 py-6 flex flex-col flex-1">
+        
+        <div className="flex items-center justify-between mb-8 mt-4">
           <h2 className="text-[32px] font-extrabold text-[#1f2937] tracking-tight">Menu Editor</h2>
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -229,10 +240,10 @@ export default function MenuManagement() {
               <input 
                 type="text" 
                 placeholder="SEARCH ITEM" 
-                className="bg-white border border-[#e5e7eb] rounded-lg pl-10 pr-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] w-[220px] transition-all uppercase"
+                className="bg-white border border-[#e5e7eb] rounded-lg pl-10 pr-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] w-[220px] transition-all uppercase shadow-sm"
               />
             </div>
-            <button className="flex items-center gap-2 bg-white border border-[#e5e7eb] rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors uppercase">
+            <button className="flex items-center gap-2 bg-white border border-[#e5e7eb] rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors uppercase shadow-sm">
               <SlidersHorizontal size={16} strokeWidth={2.5} />
               FILTER
             </button>
@@ -246,13 +257,17 @@ export default function MenuManagement() {
           </div>
         </div>
 
-        {/* Main Content Layout */}
         <div className="flex flex-col lg:flex-row gap-8 flex-1">
           
-          {/* Sidebar Categories */}
+          {/* Dynamic Sidebar Categories */}
           <div className="w-full lg:w-64 flex-shrink-0">
             <h3 className="text-[11px] font-black text-[#9ca3af] tracking-widest uppercase mb-4 px-2">CATEGORIES</h3>
             <div className="flex flex-col gap-1 relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-gray-200 before:-z-10 ml-2">
+              
+              {categories.length === 0 && !loading && (
+                 <div className="px-4 py-3 text-[13px] text-gray-500 font-medium">No categories yet. Add an item!</div>
+              )}
+
               {categories.map((cat) => (
                 <button
                   key={cat.name}
@@ -272,17 +287,19 @@ export default function MenuManagement() {
                 </button>
               ))}
             </div>
+            
+            {/* Kept button, but it serves as a visual placeholder unless you build category logic later */}
             <button className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors">
               <Plus size={14} strokeWidth={3} /> ADD CATEGORY
             </button>
           </div>
 
           {/* Main List Area */}
-          <div className="flex-1 min-w-0 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden">
+          <div className="flex-1 min-w-0 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden mb-8">
             
             <div className="px-8 py-6 border-b border-[#e5e7eb] flex items-center justify-between bg-white">
               <div>
-                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">{activeCategory}</h3>
+                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">{activeCategory || "Menu Items"}</h3>
                 <p className="text-[13px] text-[#9ca3af] font-medium mt-1">Drag to reorder items</p>
               </div>
             </div>
@@ -290,7 +307,7 @@ export default function MenuManagement() {
             <div className="flex-1 overflow-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-[#f3f4f6]">
+                  <tr className="border-b border-[#f3f4f6] bg-[#fafaf9]">
                     <th className="py-4 px-8 text-[11px] font-black tracking-widest text-[#9ca3af] uppercase w-[50%]">Item Details</th>
                     <th className="py-4 px-8 text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">Price</th>
                     <th className="py-4 px-8 text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">Status</th>
@@ -300,11 +317,11 @@ export default function MenuManagement() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="4" className="py-8 text-center text-gray-500 text-sm">Loading items...</td>
+                      <td colSpan="4" className="py-8 text-center text-gray-500 text-[14px] font-semibold">Loading items...</td>
                     </tr>
                   ) : currentCategoryItems.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-gray-500 text-sm">No items found in this category.</td>
+                      <td colSpan="4" className="py-12 text-center text-gray-500 text-[14px] font-semibold">No items found in this category.</td>
                     </tr>
                   ) : (
                     currentCategoryItems.map((item) => (
@@ -334,8 +351,10 @@ export default function MenuManagement() {
                             }`}>
                               {item.available ? "AVAILABLE" : "SOLD OUT"}
                             </span>
-                            {/* Visual Toggle */}
-                            <div className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}>
+                            <div 
+                              onClick={() => handleToggleAvailability(item)}
+                              className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}
+                            >
                               <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${item.available ? "translate-x-4" : "translate-x-0"}`}></div>
                             </div>
                           </div>
@@ -411,20 +430,25 @@ export default function MenuManagement() {
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
+                    {/* Allow users to type custom categories OR select existing ones */}
                     <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
                       Category
                     </label>
-                    <select
+                    <input
+                      type="text"
                       name="category"
+                      list="category-options"
                       value={formData.category}
                       onChange={handleInputChange}
                       className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all bg-white"
+                      placeholder="e.g. Starters"
                       required
-                    >
+                    />
+                    <datalist id="category-options">
                       {categories.map(cat => (
-                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                        <option key={cat.name} value={cat.name} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
 
                   <div>
@@ -491,12 +515,11 @@ export default function MenuManagement() {
           </div>
         )}
 
-        {/* Footer */}
-        <footer className="mt-auto pt-16 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
+        <footer className="mt-auto pt-8 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 text-[12px]">
              <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maitre D</h3>
-             <span className="text-[#9ca3af] text-[12px]">|</span>
-             <p className="text-[#6b7280] text-[12px] font-medium">Elevating restaurant operations with premium design.</p>
+             <span className="text-[#9ca3af]">|</span>
+             <p className="text-[#6b7280] font-medium">Elevating restaurant operations with premium design.</p>
           </div>
           <div className="flex gap-6 text-[12px] font-semibold text-[#6b7280]">
             <Link to="/terms" className="hover:text-[#1f2937] transition-colors">Terms of Service</Link>

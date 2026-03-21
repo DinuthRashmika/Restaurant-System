@@ -14,7 +14,6 @@ export default function MenuView() {
   
   const [selectedCategory, setSelectedCategory] = useState(categoryParam || "All");
   
-  // State for dynamic categories (Will hold "All" + up to 4 DB categories)
   const [categories, setCategories] = useState(["All"]);
   
   const { cart, addToCart } = useCart();
@@ -32,14 +31,15 @@ export default function MenuView() {
       const response = await getAllMenuItems();
       if (response.success) {
         const items = response.data;
-        setMenuItems(items);
         
-        // Dynamically extract up to 4 unique categories from the database items
+        // THE FIX: Immediately drop items that are switched off by the owner!
+        const availableItemsOnly = items.filter(item => item.available === true);
+        setMenuItems(availableItemsOnly);
+        
         const dynamicCategories = ["All"];
         const addedCategories = new Set();
 
-        items.forEach(item => {
-          // Stop adding if we already have 4 categories (5 total including 'All')
+        availableItemsOnly.forEach(item => {
           if (dynamicCategories.length >= 5) return;
 
           if (item.category && !addedCategories.has(item.category)) {
@@ -60,7 +60,6 @@ export default function MenuView() {
   const filterItems = () => {
     let filtered = [...menuItems];
     
-    // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter(item => 
         item.category && item.category.toLowerCase() === selectedCategory.toLowerCase()
@@ -70,7 +69,6 @@ export default function MenuView() {
     setFilteredItems(filtered);
   };
 
-  // Calculate cart total
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
@@ -80,7 +78,6 @@ export default function MenuView() {
       <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-4 mt-4">
           
-          {/* Sidebar - Categories Only */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-black text-gray-900 tracking-tight">Menu Categories</h2>
@@ -103,7 +100,6 @@ export default function MenuView() {
             </div>
           </div>
 
-          {/* Main Content - Menu Items */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-4 mb-8">
               <h2 className="text-3xl font-black text-gray-900 tracking-tight">
@@ -169,7 +165,6 @@ export default function MenuView() {
             )}
           </div>
 
-          {/* Cart Summary Side Panel */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <h3 className="text-lg font-black text-gray-900 tracking-tight">Your Selection</h3>
