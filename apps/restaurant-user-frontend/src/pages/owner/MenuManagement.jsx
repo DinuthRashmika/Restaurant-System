@@ -207,12 +207,6 @@ export default function MenuManagement() {
               <Link to="/owner/menu" className="text-[13px] font-bold text-[#d05322] border-b-2 border-[#d05322] pb-1">
                 Menu Editor
               </Link>
-              <Link to="/owner/analytics" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Analytics
-              </Link>
-              <Link to="/owner/settings" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Settings
-              </Link>
             </nav>
           </div>
 

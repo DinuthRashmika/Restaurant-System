@@ -20,8 +20,12 @@ export const getOrdersByCustomerId = async (customerId) => {
   return response.data;
 };
 
+// Sends status as both query parameter and body to ensure Spring Boot catches it
 export const updateOrderStatus = async (id, status) => {
-  const response = await orderApi.put(`/orders/${id}/status`, { status });
+  const response = await orderApi.put(`/orders/${id}/status?status=${status}`, { 
+    status: status,
+    orderStatus: status
+  });
   return response.data;
 };
 

@@ -1,280 +1,342 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Search, SlidersHorizontal, User, Bell } from "lucide-react";
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { 
+  Bell, 
+  LogOut,
+  AlertCircle,
+  Clock,
+  ChefHat,
+  CheckCircle2,
+  PackageCheck
+} from "lucide-react";
+import { getAllOrders, updateOrderStatus } from "../../services/orderService"; 
+import { useAuth } from "../../context/AuthContext";
+import { setToken } from "../../api/axios";
 
 export default function OwnerOrdersDashboard() {
-  const [activeTab, setActiveTab] = useState("incoming");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { auth, logout } = useAuth();
+  const currentPath = location.pathname;
 
-  // Mock Data
-  const incomingOrders = [
-    {
-      id: "#MD-2094",
-      items: "1x Truffle Risotto, 2x Sparkling Water",
-      time: "2 MIN AGO",
-    },
-    {
-      id: "#MD-2095",
-      items: "4x Oysters, 1x Chablis",
-      time: "JUST NOW",
-    },
-    {
-      id: "#MD-2096",
-      items: "2x Lobster Roll",
-      time: "5 MIN AGO",
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  // Default to 'all' so orders show up immediately
+  const [activeTab, setActiveTab] = useState("all"); 
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      let currentToken = auth?.token || auth?.accessToken;
+      if (!currentToken) {
+        try {
+          const storedAuth = JSON.parse(localStorage.getItem("auth"));
+          currentToken = storedAuth?.token || storedAuth?.accessToken;
+        } catch (e) {}
+      }
+      if (currentToken) setToken(currentToken);
+
+      const orderRes = await getAllOrders();
+
+      const extractArrayAggressive = (obj) => {
+        if (!obj) return [];
+        if (Array.isArray(obj)) return obj;
+        let foundArrays = [];
+        const search = (item) => {
+          if (!item || typeof item !== 'object') return;
+          for (let key in item) {
+            if (Array.isArray(item[key])) foundArrays.push(item[key]);
+            else if (item[key] && typeof item[key] === 'object') search(item[key]);
+          }
+        };
+        search(obj);
+        if (foundArrays.length > 0) return foundArrays.sort((a, b) => b.length - a.length)[0];
+        return [];
+      };
+
+      const extractedOrders = extractArrayAggressive(orderRes);
+      
+      const sortedOrders = extractedOrders.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.orderDate || 0);
+        const dateB = new Date(b.createdAt || b.orderDate || 0);
+        return dateB - dateA;
+      });
+
+      setOrders(sortedOrders);
+    } catch (err) {
+      console.error("Order Fetch Failed:", err);
+      setError(`Failed to load orders: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const kitchenOrders = [
-    {
-      id: "#MD-2092",
-      items: "2x Wagyu Burger, 1x Fries",
-      status: "PREPARING - 10 MIN",
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(() => fetchOrders(), 15000);
+    return () => clearInterval(interval);
+  }, [auth]);
+
+  const handleStatusUpdate = async (orderId, newStatus) => {
+    try {
+      setError(""); 
+      
+      // Optimistic UI update for instant feedback
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      
+      await updateOrderStatus(orderId, newStatus);
+      
+      fetchOrders();
+
+    } catch (err) {
+      console.error("Status Update Failed:", err);
+      
+      setError(`Backend Error 500: The server crashed when changing status to ${newStatus}. Please check your Java terminal logs.`);
+      setTimeout(() => setError(""), 8000);
+      
+      fetchOrders(); // Revert the UI since the backend rejected the update
     }
-  ];
+  };
 
-  const readyOrders = [
-    {
-      id: "#MD-2090",
-      items: "1x Caesar Salad, 1x Pinot Noir",
-      status: "WAITING FOR PICKUP",
-    }
-  ];
+  // Mapped EXACTLY to your Spring Boot OrderStatus enums
+  const getWorkflowDetails = (rawStatus) => {
+    const s = String(rawStatus || "PENDING").toUpperCase();
+    if (s === "PENDING") return { color: "bg-red-50 text-red-600 border-red-100", label: "NEW", nextStatus: "PREPARING", btnText: "APPROVE", icon: <AlertCircle size={14}/> };
+    if (s === "PREPARING") return { color: "bg-[#1f2937]/5 text-[#1f2937] border-gray-200", label: "PREPARING", nextStatus: "CONFIRMED", btnText: "MARK READY", icon: <ChefHat size={14}/> };
+    if (s === "CONFIRMED") return { color: "bg-blue-50 text-blue-600 border-blue-100", label: "READY", nextStatus: "COMPLETED", btnText: "HANDED OVER", icon: <PackageCheck size={14}/> };
+    if (s === "COMPLETED") return { color: "bg-green-50 text-green-600 border-green-100", label: "COMPLETED", nextStatus: null, btnText: null, icon: <CheckCircle2 size={14}/> };
+    if (s === "CANCELLED") return { color: "bg-gray-50 text-gray-500 border-gray-200", label: "CANCELLED", nextStatus: null, btnText: null, icon: <Clock size={14}/> };
+    return { color: "bg-gray-50 text-gray-600 border-gray-200", label: s, nextStatus: null, btnText: null, icon: <Clock size={14}/> };
+  };
 
-  const hourlyData = [
-    { time: "2PM", sales: 400 },
-    { time: "3PM", sales: 300 },
-    { time: "4PM", sales: 550 },
-    { time: "5PM", sales: 450 },
-    { time: "6PM", sales: 800 },
-    { time: "7PM", sales: 1200 },
-    { time: "8PM", sales: 900 },
-  ];
+  // Perfectly filter based on your backend database enums
+  const incomingOrders = orders.filter(o => String(o.status || "").toUpperCase() === "PENDING");
+  const kitchenOrders = orders.filter(o => String(o.status || "").toUpperCase() === "PREPARING");
+  const readyOrders = orders.filter(o => String(o.status || "").toUpperCase() === "CONFIRMED");
+  const completedOrders = orders.filter(o => String(o.status || "").toUpperCase() === "COMPLETED");
+
+  const getActiveOrders = () => {
+      if(activeTab === "all") return orders;
+      if(activeTab === "incoming") return incomingOrders;
+      if(activeTab === "kitchen") return kitchenOrders;
+      if(activeTab === "ready") return readyOrders;
+      if(activeTab === "completed") return completedOrders;
+      return orders;
+  };
+
+  const activeOrders = getActiveOrders();
+
+  const formatTime = (dateString) => {
+      if(!dateString) return "JUST NOW";
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+
+      if (diffMins < 1) return "JUST NOW";
+      if (diffMins < 60) return `${diffMins} MIN AGO`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours} HR AGO`;
+      return date.toLocaleDateString();
+  };
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] font-sans flex flex-col items-center">
-      {/* Container for bounded width */}
-      <div className="w-full max-w-[1440px] px-8 py-6 flex flex-col flex-1">
-        
-        {/* Header Navigation */}
-        <header className="flex items-center justify-between mb-12">
+    <div className="min-h-screen bg-[#fafaf9] font-sans flex flex-col items-center pb-12">
+      
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-sm py-4 border-b border-gray-100">
+        <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
           <div className="flex items-center gap-16">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-[#1f2937] tracking-wider uppercase">
-                Bistro Luxe
+            <Link to="/owner/dashboard">
+              <h1 className="text-xl md:text-2xl font-black italic tracking-tighter text-[#1f2937] transition-colors hover:text-[#d05322]">
+                Digital Maitre D
               </h1>
-              <span className="text-[11px] font-semibold text-[#6b7280] uppercase tracking-widest bg-gray-200/50 px-2 py-1 rounded-md">
-                Admin Portal
-              </span>
-            </div>
+            </Link>
             
-            <nav className="hidden md:flex items-center gap-10">
-              <Link to="/owner/dashboard" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Dashboard
-              </Link>
-              <Link to="/owner/orders" className="text-[13px] font-bold text-[#d05322] border-b-2 border-[#d05322] pb-1">
-                Live Orders
-              </Link>
-              <Link to="/owner/menu" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Menu Editor
-              </Link>
-              <Link to="/owner/analytics" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Analytics
-              </Link>
-              <Link to="/owner/settings" className="text-[13px] font-bold text-[#6b7280] hover:text-[#1f2937] transition-colors pb-1">
-                Settings
-              </Link>
+            <nav className="hidden lg:flex items-center gap-10">
+              <Link to="/owner/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/dashboard' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Dashboard</Link>
+              <Link to="/owner/orders" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/orders' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Live Orders</Link>
+              <Link to="/owner/menu" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/menu' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Menu Editor</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-[#6b7280] hover:text-[#1f2937] transition-colors">
-              <Bell size={20} strokeWidth={2.5} />
-            </button>
-            <button className="h-9 w-9 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:text-[#1f2937] transition-colors overflow-hidden border border-[#e5e7eb]">
-              <User size={18} strokeWidth={2.5} />
-            </button>
-          </div>
-        </header>
-
-        {/* Top Controls: Search & Filters */}
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-[32px] font-extrabold text-[#1f2937] tracking-tight">Live Orders</h2>
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322]" size={16} strokeWidth={2.5}/>
-              <input 
-                type="text" 
-                placeholder="SEARCH ORDER" 
-                className="bg-white border border-[#e5e7eb] rounded-lg pl-10 pr-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] w-[220px] transition-all uppercase"
-              />
-            </div>
-            <button className="flex items-center gap-2 bg-white border border-[#e5e7eb] rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors uppercase">
-              <SlidersHorizontal size={16} strokeWidth={2.5} />
-              FILTER
-            </button>
+            <button className="text-[#6b7280] hover:text-[#d05322] transition-colors relative"><Bell size={20} strokeWidth={2.5} /><div className="absolute top-0 right-0 w-2 h-2 bg-[#d05322] rounded-full border-2 border-white"></div></button>
+            <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
+            <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
+            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
         </div>
+      </header>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="h-[100px] w-full"></div>
+
+      <div className="w-full max-w-[1440px] px-8 py-6">
+        
+        {error && (
+          <div className="mb-8 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+            <AlertCircle size={24} className="flex-shrink-0" />
+            <div>
+              <h4 className="font-bold text-[15px]">API Connection Issue</h4>
+              <p className="text-[13px] font-medium">{error}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <h2 className="text-[32px] font-extrabold text-[#1f2937] tracking-tight">Live Orders</h2>
+            <p className="text-[14px] text-[#6b7280] mt-1">Manage the kitchen workflow and fulfill customer requests.</p>
+          </div>
           
-          {/* Left Column: Orders List (Span 8) */}
-          <div className="lg:col-span-8 flex flex-col">
-            
-            {/* Status Tabs */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#e5e7eb]">
-              <div className="flex items-center gap-8">
-                <button 
-                  onClick={() => setActiveTab("incoming")}
-                  className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "incoming" ? "text-[#d05322]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}
-                >
-                  INCOMING ({incomingOrders.length})
-                  {activeTab === "incoming" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#d05322]" />}
-                </button>
-                <button 
-                  onClick={() => setActiveTab("kitchen")}
-                  className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "kitchen" ? "text-[#1f2937]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}
-                >
-                  KITCHEN ({kitchenOrders.length})
-                  {activeTab === "kitchen" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#1f2937]" />}
-                </button>
-                <button 
-                  onClick={() => setActiveTab("ready")}
-                  className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "ready" ? "text-[#10b981]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}
-                >
-                  READY ({readyOrders.length})
-                  {activeTab === "ready" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#10b981]" />}
-                </button>
-              </div>
-              <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-[10px] font-black text-green-700 tracking-widest uppercase">KITCHEN OPEN</span>
-              </div>
-            </div>
-
-            {/* Orders Feed */}
-            <div className="flex flex-col gap-4">
-              
-              {activeTab === "incoming" && incomingOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-2xl p-5 border border-[#e5e7eb] flex items-center justify-between hover:shadow-md transition-shadow">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[14px] font-black text-[#1f2937]">{order.id}</span>
-                      <span className="text-[11px] font-bold text-[#d05322] bg-[#d05322]/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider">{order.time}</span>
-                    </div>
-                    <p className="text-[14px] text-[#6b7280] font-medium">{order.items}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button className="text-[12px] font-bold text-[#9ca3af] hover:text-[#4b5563] uppercase tracking-wider px-2">
-                      REJECT
-                    </button>
-                    <button className="bg-[#d05322] hover:bg-[#b84318] text-white text-[12px] font-bold tracking-wider uppercase px-6 py-2.5 rounded-lg transition-colors shadow-sm">
-                      APPROVE
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {activeTab === "kitchen" && kitchenOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-2xl p-5 border border-[#e5e7eb] flex items-center justify-between hover:shadow-md transition-shadow">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[14px] font-black text-[#1f2937]">{order.id}</span>
-                      <span className="text-[11px] font-bold text-[#1f2937] bg-gray-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">{order.status}</span>
-                    </div>
-                    <p className="text-[14px] text-[#6b7280] font-medium">{order.items}</p>
-                  </div>
-                  <button className="bg-[#1f2937] hover:bg-black text-white text-[12px] font-bold tracking-wider uppercase px-6 py-2.5 rounded-lg transition-colors shadow-sm">
-                    MARK READY
-                  </button>
-                </div>
-              ))}
-
-              {activeTab === "ready" && readyOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-2xl p-5 border border-[#e5e7eb] flex items-center justify-between hover:shadow-md transition-shadow border-l-4 border-l-[#10b981]">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[14px] font-black text-[#1f2937]">{order.id}</span>
-                      <span className="text-[11px] font-bold text-[#10b981] bg-green-50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">{order.status}</span>
-                    </div>
-                    <p className="text-[14px] text-[#6b7280] font-medium">{order.items}</p>
-                  </div>
-                  <button className="bg-white border border-[#e5e7eb] hover:border-[#10b981] text-[#1f2937] hover:text-[#10b981] text-[12px] font-bold tracking-wider uppercase px-6 py-2.5 rounded-lg transition-colors shadow-sm">
-                    HANDED OVER
-                  </button>
-                </div>
-              ))}
-
-            </div>
-          </div>
-
-          {/* Right Column: Key Metrics (Span 4) */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            
-            {/* Total Sales Card */}
-            <div className="bg-white rounded-3xl p-8 border border-[#e5e7eb] shadow-sm">
-              <h3 className="text-[11px] font-black text-[#9ca3af] uppercase tracking-widest mb-2">TOTAL SALES TODAY</h3>
-              <div className="text-[42px] font-extrabold text-[#1f2937] leading-none mb-2 tracking-tight">$4,250.00</div>
-              <p className="text-[13px] font-bold text-[#10b981] flex items-center gap-1">
-                ↗ +12% from yesterday
-              </p>
-            </div>
-
-            {/* Hourly Performance Chart Setup */}
-            <div className="bg-[#1f2937] rounded-3xl p-8 shadow-sm text-white">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-[11px] font-black text-[#9ca3af] uppercase tracking-widest">HOURLY PERFORMANCE</h3>
-                <button className="text-[11px] font-bold text-[#d05322] hover:text-white uppercase tracking-wider transition-colors">
-                  VIEW FULL →
-                </button>
-              </div>
-              <div className="h-[140px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={hourlyData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Tooltip 
-                      cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                      contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                      itemStyle={{ color: '#d05322' }}
-                    />
-                    <Bar dataKey="sales" fill="#d05322" radius={[4, 4, 4, 4]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-between text-[10px] font-bold text-[#6b7280] mt-3">
-                {hourlyData.map(d => <span key={d.time}>{d.time}</span>)}
-              </div>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl p-5 border border-[#e5e7eb]">
-                <h4 className="text-[10px] font-black text-[#9ca3af] uppercase tracking-widest mb-1">AVG TICKET</h4>
-                <div className="text-[20px] font-extrabold text-[#1f2937]">$85.00</div>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-[#e5e7eb]">
-                <h4 className="text-[10px] font-black text-[#9ca3af] uppercase tracking-widest mb-1">ACTIVE TABLES</h4>
-                <div className="text-[20px] font-extrabold text-[#1f2937]">12</div>
-              </div>
-            </div>
-
+          <div className="flex bg-white rounded-full p-1.5 border border-[#e5e7eb] shadow-sm overflow-x-auto scrollbar-hide">
+            {["ALL", "NEW", "PREPARING", "READY", "COMPLETED"].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(
+                  tab === "ALL" ? "all" : 
+                  tab === "NEW" ? "incoming" : 
+                  tab === "PREPARING" ? "kitchen" : 
+                  tab === "READY" ? "ready" : 
+                  "completed"
+                )}
+                className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-widest uppercase transition-all whitespace-nowrap ${
+                  (activeTab === "incoming" && tab === "NEW") || 
+                  (activeTab === "kitchen" && tab === "PREPARING") || 
+                  (activeTab === "ready" && tab === "READY") || 
+                  (activeTab === "all" && tab === "ALL") ||
+                  (activeTab === "completed" && tab === "COMPLETED")
+                    ? "bg-[#1f2937] text-white shadow-md" 
+                    : "text-[#6b7280] hover:text-[#1f2937] hover:bg-gray-50"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-auto pt-16 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-             <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maitre D</h3>
-             <span className="text-[#9ca3af] text-[12px]">|</span>
-             <p className="text-[#6b7280] text-[12px] font-medium">Elevating restaurant operations with premium design.</p>
-          </div>
-          <div className="flex gap-6 text-[12px] font-semibold text-[#6b7280]">
-            <Link to="/terms" className="hover:text-[#1f2937] transition-colors">Terms of Service</Link>
-            <Link to="/privacy" className="hover:text-[#1f2937] transition-colors">Privacy Policy</Link>
-            <Link to="/support" className="hover:text-[#1f2937] transition-colors">Partner Support</Link>
-          </div>
-        </footer>
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#e5e7eb]">
+            <div className="flex items-center gap-8">
+            <button onClick={() => setActiveTab("incoming")} className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "incoming" ? "text-[#d05322]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}>
+                INCOMING ({incomingOrders.length})
+                {activeTab === "incoming" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#d05322]" />}
+            </button>
+            <button onClick={() => setActiveTab("kitchen")} className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "kitchen" ? "text-[#1f2937]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}>
+                KITCHEN ({kitchenOrders.length})
+                {activeTab === "kitchen" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#1f2937]" />}
+            </button>
+            <button onClick={() => setActiveTab("ready")} className={`text-[13px] font-extrabold tracking-widest uppercase transition-colors relative ${activeTab === "ready" ? "text-[#10b981]" : "text-[#9ca3af] hover:text-[#6b7280]"}`}>
+                READY ({readyOrders.length})
+                {activeTab === "ready" && <div className="absolute -bottom-4 left-0 right-0 h-0.5 bg-[#10b981]" />}
+            </button>
+            </div>
+            <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase">KITCHEN OPEN</span>
+            </div>
+        </div>
 
+        {loading && orders.length === 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+             {[1,2,3,4].map(n => <div key={n} className="h-64 rounded-3xl bg-gray-200 animate-pulse border border-[#e5e7eb]"></div>)}
+          </div>
+        ) : activeOrders.length === 0 ? (
+          <div className="bg-white border-2 border-dashed border-[#e5e7eb] rounded-[2rem] p-16 text-center">
+            <PackageCheck size={48} className="mx-auto text-gray-300 mb-4" strokeWidth={1.5} />
+            <h3 className="text-xl font-extrabold text-gray-900 mb-2">No orders to display</h3>
+            <p className="text-gray-500 text-sm">There are no orders in the "{activeTab.toUpperCase()}" category.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {activeOrders.map(order => {
+              const workflow = getWorkflowDetails(order.status);
+              const orderTotal = order.totalAmount || order.totalPrice || order.items?.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0) || 0;
+              const formattedDate = order.createdAt || order.orderDate ? new Date(order.createdAt || order.orderDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just Now";
+
+              return (
+                <div key={order.id} className="bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col hover:shadow-md transition-shadow group relative overflow-hidden">
+                  
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 ${workflow.color.split(' ')[0]}`}></div>
+
+                  <div className="p-6 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className="font-extrabold text-[#1f2937] text-[15px]">Order</h3>
+                        <p className="text-[14px] text-[#1f2937] font-black mt-1">
+                          #{order.id ? order.id.slice(-6).toUpperCase() : "N/A"}
+                        </p>
+                        <p className="text-[12px] text-[#6b7280] font-medium flex items-center gap-1 mt-1">
+                          <Clock size={12}/> {formattedDate}
+                        </p>
+                      </div>
+                      <div className={`px-2.5 py-1 rounded-md border text-[10px] font-black tracking-widest uppercase flex items-center gap-1.5 ${workflow.color}`}>
+                        {workflow.icon} {workflow.label}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#fafaf9] rounded-xl p-3 mb-6 border border-gray-100">
+                      <p className="text-[13px] font-bold text-[#1f2937]">{order.customerName || "Walk-in Customer"}</p>
+                      <p className="text-[11px] text-[#6b7280] truncate mt-0.5">{order.deliveryAddress || "Dine-in / Pickup"}</p>
+                    </div>
+
+                    <div className="flex-1 space-y-3 mb-6 max-h-[160px] overflow-y-auto pr-2">
+                      {order.items?.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-start text-[13px]">
+                          <div className="flex gap-2.5">
+                            <span className="font-black text-[#1f2937] bg-gray-100 px-1.5 rounded">{item.quantity}x</span>
+                            <span className="font-medium text-[#4b5563] leading-snug">{item.itemName || item.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-dashed border-[#e5e7eb] pt-4 mt-auto">
+                      <div className="flex justify-between items-center mb-5">
+                        <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-widest">Total</span>
+                        <span className="font-black text-[#1f2937] text-[18px]">${orderTotal.toFixed(2)}</span>
+                      </div>
+
+                      {workflow.nextStatus ? (
+                        <div className="flex gap-2">
+                          {workflow.label === "NEW" && (
+                            <button 
+                                onClick={() => handleStatusUpdate(order.id, "CANCELLED")}
+                                className="text-[12px] font-bold text-[#9ca3af] hover:text-[#4b5563] uppercase tracking-wider px-2"
+                            >
+                                REJECT
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleStatusUpdate(order.id, workflow.nextStatus)}
+                            className={`w-full py-3.5 rounded-xl text-[13px] font-black tracking-widest uppercase transition-all flex justify-center items-center gap-2 ${
+                              workflow.nextStatus === "PREPARING" ? "bg-[#d05322] text-white hover:bg-[#b84318] shadow-md" :
+                              workflow.nextStatus === "CONFIRMED" ? "bg-[#1f2937] text-white hover:bg-black shadow-md" :
+                              "bg-white border border-[#1f2937] text-[#1f2937] hover:bg-[#1f2937] hover:text-white"
+                            }`}
+                          >
+                            {workflow.btnText}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full py-3.5 rounded-xl text-[13px] font-black tracking-widest uppercase bg-gray-100 text-gray-400 flex justify-center items-center gap-2 cursor-not-allowed">
+                          <CheckCircle2 size={16} /> COMPLETED
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
