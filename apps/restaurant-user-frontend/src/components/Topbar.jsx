@@ -1,9 +1,18 @@
-import { Link, useLocation } from "react-router-dom";
-import { Bell } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell, LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Topbar() {
   const location = useLocation();
   const currentPath = location.pathname;
+  
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <>
@@ -64,6 +73,18 @@ export default function Topbar() {
                 style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}
               ></div>
             </Link>
+
+            {/* Vertical Divider line */}
+            <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
+
+            {/* Logout Button */}
+            <button 
+              onClick={handleLogout}
+              className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"
+              title="Logout"
+            >
+              <LogOut size={20} strokeWidth={2.5} className="ml-0.5" />
+            </button>
           </div>
         </div>
       </header>

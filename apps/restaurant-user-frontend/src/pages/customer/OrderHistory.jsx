@@ -63,7 +63,6 @@ export default function OrderHistory() {
             <nav className="flex gap-4">
               <Link to="/menu" className="text-sm text-gray-500 hover:text-gray-700">Explore</Link>
               <Link to="/orders" className="text-sm font-semibold text-orange-600">Orders</Link>
-              <Link to="/favorites" className="text-sm text-gray-500 hover:text-gray-700">Favorites</Link>
             </nav>
           </div>
         </div>
