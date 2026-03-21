@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Topbar from "../../components/Topbar";
-import { getAllMenuItems, getMenuItemsByCategory } from "../../services/menuService";
+import { getAllMenuItems } from "../../services/menuService";
 import { useCart } from "../../context/CartContext";
 
 export default function MenuView() {
@@ -11,20 +11,13 @@ export default function MenuView() {
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState(categoryParam || "All Delights");
-  const [dietaryFilters, setDietaryFilters] = useState([]);
+  
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam || "All");
+  
+  // State for dynamic categories (Will hold "All" + up to 4 DB categories)
+  const [categories, setCategories] = useState(["All"]);
   
   const { cart, addToCart } = useCart();
-  
-  const categories = [
-    "All Delights",
-    "Signature Mains",
-    "Garden Fresh",
-    "Artisan Breads",
-    "Sweet Endings"
-  ];
-  
-  const dietaryOptions = ["Veggie", "Gluten-free", "Spicy"];
 
   useEffect(() => {
     fetchMenuItems();
@@ -32,13 +25,30 @@ export default function MenuView() {
 
   useEffect(() => {
     filterItems();
-  }, [menuItems, selectedCategory, dietaryFilters]);
+  }, [menuItems, selectedCategory]);
 
   const fetchMenuItems = async () => {
     try {
       const response = await getAllMenuItems();
       if (response.success) {
-        setMenuItems(response.data);
+        const items = response.data;
+        setMenuItems(items);
+        
+        // Dynamically extract up to 4 unique categories from the database items
+        const dynamicCategories = ["All"];
+        const addedCategories = new Set();
+
+        items.forEach(item => {
+          // Stop adding if we already have 4 categories (5 total including 'All')
+          if (dynamicCategories.length >= 5) return;
+
+          if (item.category && !addedCategories.has(item.category)) {
+            addedCategories.add(item.category);
+            dynamicCategories.push(item.category);
+          }
+        });
+
+        setCategories(dynamicCategories);
       }
     } catch (error) {
       console.error("Error fetching menu items:", error);
@@ -51,175 +61,159 @@ export default function MenuView() {
     let filtered = [...menuItems];
     
     // Filter by category
-    if (selectedCategory !== "All Delights") {
+    if (selectedCategory !== "All") {
       filtered = filtered.filter(item => 
-        item.category.toLowerCase() === selectedCategory.toLowerCase()
+        item.category && item.category.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
     
-    // Apply dietary filters (simplified - in real app, you'd have dietary tags on items)
-    if (dietaryFilters.length > 0) {
-      filtered = filtered.filter(item => {
-        // This is a simplified example - you'd need dietary fields in your model
-        return dietaryFilters.some(filter => 
-          item.description.toLowerCase().includes(filter.toLowerCase())
-        );
-      });
-    }
-    
     setFilteredItems(filtered);
-  };
-
-  const toggleDietaryFilter = (filter) => {
-    setDietaryFilters(prev =>
-      prev.includes(filter)
-        ? prev.filter(f => f !== filter)
-        : [...prev, filter]
-    );
   };
 
   // Calculate cart total
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <Topbar />
+    <div className="min-h-screen bg-[#fafaf9] selection:bg-[#d05322] selection:text-white pb-12">
+      <Topbar />
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-4">
-          {/* Sidebar - Categories & Filters */}
+      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-4 mt-4">
+          
+          {/* Sidebar - Categories Only */}
           <div className="lg:col-span-1">
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-lg font-bold text-gray-900">Menu</h2>
+            <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-black text-gray-900 tracking-tight">Menu Categories</h2>
               
               <div className="mt-4 space-y-1">
                 {categories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                    className={`w-full rounded-xl px-4 py-3 text-left text-[14px] transition-all duration-300 font-semibold ${
                       selectedCategory === category
-                        ? "bg-orange-50 font-semibold text-orange-600"
-                        : "text-gray-600 hover:bg-gray-50"
+                        ? "bg-[#d05322] text-white shadow-md"
+                        : "text-gray-600 bg-transparent hover:bg-gray-50 hover:text-[#1f2937]"
                     }`}
                   >
                     {category}
                   </button>
                 ))}
               </div>
-
-              <div className="mt-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                  DIETARY FILTERS
-                </h3>
-                <div className="mt-3 space-y-2">
-                  {dietaryOptions.map((option) => (
-                    <label key={option} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={dietaryFilters.includes(option)}
-                        onChange={() => toggleDietaryFilter(option)}
-                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                      />
-                      <span className="text-sm text-gray-700">{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
 
           {/* Main Content - Menu Items */}
           <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold text-gray-900">Signature Selections</h2>
-            <p className="text-gray-500">Curated with precision, served with passion.</p>
+            <div className="flex items-center gap-4 mb-8">
+              <h2 className="text-3xl font-black text-gray-900 tracking-tight">
+                {selectedCategory === "All" ? "Full Collection" : `${selectedCategory} Selection`}
+              </h2>
+              <div className="h-px bg-gray-200 flex-1 mt-2"></div>
+            </div>
 
             {loading ? (
-              <div className="mt-6 space-y-4">
+              <div className="space-y-4">
                 {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="h-32 animate-pulse rounded-xl bg-gray-200"></div>
+                  <div key={n} className="h-40 animate-pulse rounded-2xl bg-gray-200"></div>
                 ))}
               </div>
             ) : (
-              <div className="mt-6 space-y-4">
-                {filteredItems.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-6">
-                    <div className="flex gap-4">
-                      {item.imageUrl && (
-                        <img
-                          src={`http://localhost:8082${item.imageUrl}`}
-                          alt={item.name}
-                          className="h-24 w-24 rounded-lg object-cover"
-                        />
+              <div className="space-y-6">
+                {filteredItems.length > 0 ? (
+                  filteredItems.map((item) => (
+                    <div key={item.id} className="group rounded-2xl border border-gray-200 bg-white p-4 transition-all hover:border-[#d05322]/50 hover:shadow-lg flex flex-col sm:flex-row gap-6">
+                      
+                      {item.imageUrl ? (
+                        <div className="h-40 w-full sm:w-40 flex-shrink-0 overflow-hidden rounded-xl">
+                          <img
+                            src={`http://localhost:8082${item.imageUrl}`}
+                            alt={item.name}
+                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-40 w-full sm:w-40 flex-shrink-0 rounded-xl bg-gray-100 flex items-center justify-center">
+                          <span className="text-gray-400 text-xs font-semibold uppercase tracking-widest">No Image</span>
+                        </div>
                       )}
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
-                        <p className="mt-1 text-sm text-gray-500">{item.description}</p>
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="text-xl font-bold text-orange-600">
+                      
+                      <div className="flex flex-1 flex-col justify-between py-2">
+                        <div>
+                          <div className="flex justify-between items-start gap-4">
+                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-[#d05322] transition-colors">{item.name}</h3>
+                          </div>
+                          <p className="mt-2 text-[14px] text-gray-500 line-clamp-2 leading-relaxed">{item.description}</p>
+                        </div>
+                        
+                        <div className="mt-6 flex items-center justify-between">
+                          <span className="text-2xl font-black text-[#1f2937]">
                             ${item.price.toFixed(2)}
                           </span>
                           <button
                             onClick={() => addToCart(item)}
-                            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+                            className="rounded-full bg-[#f3f4f6] px-6 py-2.5 text-[13px] font-black uppercase tracking-widest text-[#1f2937] transition-all hover:bg-[#d05322] hover:text-white shadow-sm hover:shadow-md"
                           >
-                            Add to Cart
+                            Add to Order
                           </button>
                         </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
+                    <p className="text-lg font-bold text-gray-400">No items found for this category.</p>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
 
-          {/* Cart Summary */}
+          {/* Cart Summary Side Panel */}
           <div className="lg:col-span-1">
-            <div className="sticky top-6 rounded-xl border border-gray-200 bg-white p-6">
-              <h3 className="text-lg font-bold text-gray-900">Your Selection</h3>
+            <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-black text-gray-900 tracking-tight">Your Selection</h3>
               
-              <div className="mt-4 space-y-3">
+              <div className="mt-6 space-y-4 max-h-[40vh] overflow-y-auto pr-2">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <div>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                  <div key={item.id} className="flex justify-between text-[14px] border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                    <div className="pr-3">
+                      <p className="font-bold text-gray-900 line-clamp-1">{item.name}</p>
+                      <p className="text-xs font-semibold text-gray-500 mt-0.5">Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-bold text-gray-900 whitespace-nowrap">
                       ${(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
                 ))}
                 
                 {cart.length === 0 && (
-                  <p className="text-sm text-gray-500">Your cart is empty</p>
+                  <div className="py-8 text-center">
+                    <p className="text-[14px] font-medium text-gray-400">Your cart is empty.</p>
+                  </div>
                 )}
               </div>
 
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                <div className="flex justify-between font-bold">
+              <div className="mt-6 border-t border-dashed border-gray-200 pt-6">
+                <div className="flex justify-between font-black text-lg text-gray-900">
                   <span>Subtotal</span>
-                  <span>${cartTotal.toFixed(2)}</span>
+                  <span className="text-[#d05322]">${cartTotal.toFixed(2)}</span>
                 </div>
                 
                 <Link
                   to="/checkout"
-                  className="mt-4 block w-full rounded-lg bg-orange-600 py-3 text-center font-semibold text-white hover:bg-orange-700"
+                  className={`mt-6 block w-full rounded-xl py-4 text-center text-[14px] font-black uppercase tracking-widest text-white transition-all shadow-lg ${
+                    cart.length > 0 
+                      ? "bg-[#1f2937] hover:bg-[#d05322] hover:-translate-y-1" 
+                      : "bg-gray-300 cursor-not-allowed pointer-events-none shadow-none"
+                  }`}
                 >
-                  View Cart
+                  Proceed to Checkout
                 </Link>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <footer className="mt-12 border-t border-gray-200 pt-8 text-center text-sm text-gray-500">
-          <p>Digital Maitre D' Technologies</p>
-          <p className="mt-1">Empowering the hospitality experience through fine design and culinary practice.</p>
-          <p className="mt-2">© 2024 Digital Maitre D' Technologies. All rights reserved.</p>
-        </footer>
       </div>
     </div>
   );
