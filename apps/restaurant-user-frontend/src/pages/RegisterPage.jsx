@@ -83,7 +83,7 @@ export default function RegisterPage() {
         {/* Content */}
         <div className="relative z-10 w-full max-w-xl">
           <h1 className="text-5xl lg:text-6xl font-bold italic text-white leading-tight mb-8 drop-shadow-md">
-            Digital Maître D'
+            Digital Maitre D
           </h1>
           
           <p className="text-xl text-white/95 font-medium leading-relaxed mb-12 drop-shadow">
@@ -114,7 +114,7 @@ export default function RegisterPage() {
         {/* Footer info absolute bottom */}
         <div className="absolute bottom-8 left-16 xl:left-24 z-10">
           <p className="text-white/60 text-xs tracking-wider uppercase">
-            © 2024 Digital Maître D' Technologies
+            © 2024 Digital Maitre D Technologies
           </p>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-[440px]">
           {/* Mobile Logo */}
           <div className="lg:hidden mb-8 text-center">
-            <h2 className="text-3xl font-bold italic text-[#d05322]">Digital Maître D'</h2>
+            <h2 className="text-3xl font-bold italic text-[#d05322]">Digital Maitre D</h2>
           </div>
 
           <div className="absolute top-12 right-12 hidden lg:block opacity-20 pointer-events-none">

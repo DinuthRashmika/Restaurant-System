@@ -68,7 +68,7 @@ export default function LoginPage() {
         {/* Header content */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold italic text-[#d05322] tracking-tight mb-6">
-            Digital Maître D'
+            Digital Maitre D
           </h1>
           <h2 className="text-[32px] font-bold text-[#1f2937] leading-tight mb-2">
             Welcome back
@@ -220,7 +220,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="mt-10 text-center">
           <p className="text-[14px] text-[#6b7280]">
-            New to Digital Maître D'?{" "}
+            New to Digital Maitre D?{" "}
             <Link to="/register" className="font-bold text-[#d05322] hover:text-[#b84318]">
               Create an account
             </Link>

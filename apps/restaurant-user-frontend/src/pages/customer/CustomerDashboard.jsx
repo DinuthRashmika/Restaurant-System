@@ -63,7 +63,7 @@ export default function CustomerDashboard() {
         <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
           <div className="flex items-center gap-16">
             <h1 className={`text-2xl font-black italic tracking-tighter transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'}`}>
-              Digital Maître D'
+              Digital Maitre D
             </h1>
             <nav className="hidden lg:flex items-center gap-10">
               <Link to="/customer/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'} flex flex-col after:w-full after:h-0.5 after:bg-[#d05322] after:mt-1`}>
@@ -311,7 +311,7 @@ export default function CustomerDashboard() {
       <footer className="bg-white border-t border-[#f3f4f6] pt-20 pb-10">
         <div className="w-full max-w-[1440px] mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-12">
           <div>
-            <h3 className="font-bold italic text-[#d05322] text-[20px] mb-4 tracking-tight">Digital Maître D'</h3>
+            <h3 className="font-bold italic text-[#d05322] text-[20px] mb-4 tracking-tight">Digital Maitre D</h3>
             <p className="text-[#6b7280] text-[14px] max-w-[400px] leading-relaxed font-medium">
               Elevating the at-home dining experience through technology and culinary expertise. We bridge the gap between fine dining and sophisticated convenience.
             </p>

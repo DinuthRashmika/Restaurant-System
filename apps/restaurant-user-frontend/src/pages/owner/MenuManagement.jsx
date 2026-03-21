@@ -500,7 +500,7 @@ export default function MenuManagement() {
         {/* Footer */}
         <footer className="mt-auto pt-16 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-             <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maître D'</h3>
+             <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maitre D</h3>
              <span className="text-[#9ca3af] text-[12px]">|</span>
              <p className="text-[#6b7280] text-[12px] font-medium">Elevating restaurant operations with premium design.</p>
           </div>
