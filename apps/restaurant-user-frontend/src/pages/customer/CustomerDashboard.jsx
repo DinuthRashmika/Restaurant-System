@@ -37,7 +37,7 @@ export default function CustomerDashboard() {
 
           // Extract unique categories from backend items
           const dynamicCategories = [
-            { name: "All", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" }
+            { name: "All", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" }
           ];
           
           const addedCategories = new Set();
