@@ -1,16 +1,20 @@
 import { Link } from "react-router-dom";
-import { Search, Bell, User, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin } from "lucide-react";
+import { Search, Bell, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getAllMenuItems } from "../../services/menuService"; // Added API import
+import { getAllMenuItems } from "../../services/menuService";
 
 export default function CustomerDashboard() {
   const [scrolled, setScrolled] = useState(false);
   
-  // --- NEW STATES FOR DYNAMIC MENU ---
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
+  
+  // --- NEW: STATE FOR DYNAMIC CATEGORIES ---
+  const [categories, setCategories] = useState([
+    { name: "All", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" }
+  ]);
 
   // Scroll effect
   useEffect(() => {
@@ -21,14 +25,41 @@ export default function CustomerDashboard() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // --- FETCH & FILTER LOGIC ---
+  // --- FETCH ITEMS & GENERATE DYNAMIC CATEGORIES ---
   useEffect(() => {
     const fetchItems = async () => {
       try {
         const response = await getAllMenuItems();
         if (response.success) {
-          setMenuItems(response.data);
-          setFilteredItems(response.data); // Initialize with all items
+          const items = response.data;
+          setMenuItems(items);
+          setFilteredItems(items); 
+
+          // Extract unique categories from backend items
+          const dynamicCategories = [
+            { name: "All", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" }
+          ];
+          
+          const addedCategories = new Set();
+
+          items.forEach(item => {
+            if (item.category && !addedCategories.has(item.category)) {
+              addedCategories.add(item.category);
+              
+              // Use the first item's image as the category cover, or a fallback if no image
+              const categoryImage = item.imageUrl 
+                ? `http://localhost:8082${item.imageUrl}` 
+                : "https://images.unsplash.com/photo-1490818387583-1b0570c867ee?auto=format&fit=crop&w=400&q=80";
+
+              dynamicCategories.push({
+                name: item.category,
+                image: categoryImage
+              });
+            }
+          });
+
+          // Update the carousel with the real categories
+          setCategories(dynamicCategories);
         }
       } catch (error) {
         console.error("Error fetching menu items:", error);
@@ -49,15 +80,6 @@ export default function CustomerDashboard() {
       setFilteredItems(filtered);
     }
   }, [menuItems, selectedCategory]);
-
-  // --- UPDATED CATEGORIES TO ACT AS FILTERS ---
-  const categories = [
-    { name: "All", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" },
-    { name: "Main Course", image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=400&q=80" },
-    { name: "Appetizers", image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=400&q=80" },
-    { name: "Desserts", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=400&q=80" },
-    { name: "Beverages", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80" }
-  ];
 
   const popularCuisines = [
     { name: "Italian Kitchen", chef: "Massimo Bottura", location: "Downtown · 1.2mi", image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80" },
@@ -144,7 +166,7 @@ export default function CustomerDashboard() {
       {/* Main Dashboard Content bounded width */}
       <div className="w-full max-w-[1440px] mx-auto px-8 relative z-20 -mt-10 lg:-mt-24">
         
-        {/* Categories Carousel - UPDATED TO BE FUNCTIONAL */}
+        {/* Categories Carousel */}
         <section className="mb-16">
            <div className="flex items-end justify-between mb-8 px-2">
             <div>
@@ -176,7 +198,6 @@ export default function CustomerDashboard() {
                     alt={cat.name} 
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                   />
-                  {/* Floating Label */}
                   <div className="absolute bottom-4 left-4 right-4 z-20">
                     <div className="bg-white/90 backdrop-blur-md rounded-2xl py-3 px-4 text-center border border-white/50 shadow-xl">
                       <span className={`text-[14px] font-black tracking-wider uppercase ${selectedCategory === cat.name ? 'text-[#d05322]' : 'text-[#1f2937]'}`}>
@@ -190,7 +211,7 @@ export default function CustomerDashboard() {
           </div>
         </section>
 
-        {/* DYNAMIC MENU ITEMS GRID (Replaces static Chef's Selection) */}
+        {/* DYNAMIC MENU ITEMS GRID */}
         <section className="mb-32">
           <div className="flex items-center gap-4 mb-12 px-2">
             <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">
