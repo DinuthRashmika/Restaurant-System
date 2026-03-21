@@ -1,287 +1,331 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Topbar from "../../components/Topbar";
+import { Search, Bell, User, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function CustomerDashboard() {
-  const [loading, setLoading] = useState(false);
-  // Mock data for the category icons (use Lucide-react or similar for real icons)
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const categories = [
-    { name: "Pizza", icon: "🍕" },
-    { name: "Burgers", icon: "🍔" },
-    { name: "Sushi", icon: "🍣" },
-    { name: "Desserts", icon: "🍰" },
-    { name: "Coffee", icon: "☕" },
-    { name: "Ramen", icon: "🍜" },
-    { name: "Bakery", icon: "🥐" },
-    { name: "Salads", icon: "🥗" },
-    { name: "Seafood", icon: "🦞" },
-    { name: "Mexican", icon: "🌮" },
+    { name: "Signatures", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" },
+    { name: "Sushi", image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=400&q=80" },
+    { name: "Pasta", image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=400&q=80" },
+    { name: "Steak", image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?auto=format&fit=crop&w=400&q=80" },
+    { name: "Vegan", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80" },
+    { name: "Dessert", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=400&q=80" },
   ];
 
-  // Featured restaurants/items data
   const featuredItems = [
     { 
-      name: "Smokey Joe's BBQ", 
-      desc: "Prime Cuts & Oak Smoke", 
-      price: 24.50, 
-      time: "15 MIN",
-      image: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80"
+      name: "Truffle & Mushroom Risotto", 
+      desc: "Arborio rice, black truffle shavings, aged parmesan, micro greens", 
+      price: 34.00, 
+      time: "25 MIN",
+      rating: 4.9,
+      image: "https://images.unsplash.com/photo-1572656631137-7935297eff55?auto=format&fit=crop&w=800&q=80"
     },
     { 
-      name: "Green Garden Bowls", 
-      desc: "Organic & Sustenance-first", 
-      price: 14.00, 
-      time: "12 MIN",
-      image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80"
-    },
-    { 
-      name: "Umami Sushi Bar", 
-      desc: "Daily Fresh Catch • Chef Sourced", 
-      price: 32.00, 
+      name: "Pan-Seared Scallops", 
+      desc: "Cauliflower purée, brown butter caper sauce, crispy pancetta", 
+      price: 42.00, 
       time: "20 MIN",
-      image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80"
+      rating: 4.8,
+      image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80"
     },
     { 
-      name: "Burger & Co", 
-      desc: "Gourmet Patties • Artisan Buns", 
-      price: 18.50, 
-      time: "18 MIN",
-      image: "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=800&q=80"
+      name: "O-Toro Sashimi Platter", 
+      desc: "Premium fatty tuna belly, fresh wasabi root, specialized soy blend", 
+      price: 68.00, 
+      time: "15 MIN",
+      rating: 5.0,
+      image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80"
     }
   ];
 
-  // Popular dishes data
-  const popularDishes = [
-    { name: "Margherita Pizza", restaurant: "Pizza Heaven", price: 16.99, rating: 4.8, image: "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=800&q=80" },
-    { name: "Spicy Ramen", restaurant: "Ramen House", price: 14.99, rating: 4.7, image: "https://images.unsplash.com/photo-1557872943-16a5ac26437a?auto=format&fit=crop&w=800&q=80" },
-    { name: "Chocolate Lava Cake", restaurant: "Sweet Dreams", price: 8.99, rating: 4.9, image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&q=80" },
-    { name: "California Roll", restaurant: "Sushi Master", price: 12.99, rating: 4.6, image: "https://images.unsplash.com/photo-1617196035154-1e7e6e28b0db?auto=format&fit=crop&w=800&q=80" },
+  const popularCuisines = [
+    { name: "Italian Kitchen", chef: "Massimo Bottura", location: "Downtown · 1.2mi", image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80" },
+    { name: "The Wagyu House", chef: "Kenji Sato", location: "Midtown · 3.4mi", image: "https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=600&q=80" },
+    { name: "Botanica Vegan", chef: "Sarah Wells", location: "Westside · 0.8mi", image: "https://images.unsplash.com/photo-1490818387583-1b0570c867ee?auto=format&fit=crop&w=600&q=80" },
   ];
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans">
-      {/* Full width top bar */}
-      <Topbar />
+    <div className="min-h-screen bg-[#fafaf9] font-sans selection:bg-[#d05322] selection:text-white">
       
-      {/* Main content with max-width container */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
-        <section className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center mb-16">
-          <div>
-            <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight">
-              Curated Dining, <br />
-              <span className="text-orange-600">Delivered to You.</span>
+      {/* Immersive Hero Navbar - Becomes solid on scroll */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-sm py-4' : 'bg-transparent py-8'}`}>
+        <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
+          <div className="flex items-center gap-16">
+            <h1 className={`text-2xl font-black italic tracking-tighter transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'}`}>
+              Digital Maître D'
             </h1>
-            <p className="mt-4 text-gray-500 max-w-md text-sm sm:text-base">
-              Experience restaurant-grade service and flavors from the comfort of your home. Your personal Digital Maître D’ is ready.
-            </p>
-            <div className="mt-8 flex items-center shadow-xl rounded-full border border-gray-100 p-1 max-w-md">
-              <span className="pl-4 text-orange-600">🍴</span>
-              <input 
-                type="text" 
-                placeholder="What are you craving?" 
-                className="flex-1 px-4 py-3 outline-none bg-transparent text-sm"
-              />
-              <button className="rounded-full bg-orange-600 px-6 sm:px-8 py-3 text-xs font-bold text-white transition hover:bg-orange-700 whitespace-nowrap">
-                FIND FOOD
+            <nav className="hidden lg:flex items-center gap-10">
+              <Link to="/customer/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'} flex flex-col after:w-full after:h-0.5 after:bg-[#d05322] after:mt-1`}>
+                Explore
+              </Link>
+              <Link to="/order-history" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
+                Orders
+              </Link>
+              <Link to="/favorites" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
+                Favorites
+              </Link>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <button className={`transition-colors duration-500 hover:scale-110 ${scrolled ? 'text-[#1f2937]' : 'text-white'}`}>
+              <Bell size={22} strokeWidth={2.5} />
+            </button>
+            <div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-white/20 cursor-pointer hover:border-[#d05322] transition-colors" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative w-full h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+        {/* Deep, immersive background image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1514361892635-6b07e31e75f9?auto=format&fit=crop&w=2000&q=80" 
+            alt="Fine dining table" 
+            className="w-full h-full object-cover"
+          />
+          {/* Complex Gradient Overlay to ensure text readability while keeping vibe */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-[#fafaf9]"></div>
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 w-full max-w-[1440px] px-8 flex flex-col items-center text-center mt-20">
+          <span className="text-[#d05322] font-black tracking-[0.3em] uppercase text-[11px] mb-6 flex items-center gap-2">
+            <div className="w-8 h-px bg-[#d05322]"></div>
+            Exclusive Access
+            <div className="w-8 h-px bg-[#d05322]"></div>
+          </span>
+          <h1 className="text-5xl md:text-7xl lg:text-[84px] font-bold text-white leading-[1.05] tracking-tight mb-8">
+            Curated Dining, <br/>
+            <span className="italic font-light text-white/90">Delivered.</span>
+          </h1>
+          
+          <p className="text-lg text-white/80 max-w-[600px] font-medium leading-relaxed mb-12">
+            Experience the city's highest-tier culinary creations, brought to your door with white-glove precision.
+          </p>
+
+          {/* Premium Glassmorphic Search Bar */}
+          <div className="flex items-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full p-2 w-full max-w-[680px] shadow-2xl transition-all hover:bg-white/20 focus-within:bg-white focus-within:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] group">
+            <div className="pl-6 text-white group-focus-within:text-[#d05322] transition-colors">
+              <Search size={22} strokeWidth={2.5}/>
+            </div>
+            <input 
+              type="text" 
+              placeholder="What are you craving today?" 
+              className="flex-1 px-4 py-4 lg:py-5 outline-none bg-transparent text-[16px] font-semibold text-white group-focus-within:text-[#1f2937] placeholder:text-white/60 group-focus-within:placeholder:text-[#9ca3af] transition-colors"
+            />
+            <button className="rounded-full bg-[#d05322] px-8 lg:px-10 py-4 lg:py-5 text-[14px] font-bold tracking-widest text-white uppercase transition-all hover:bg-[#b84318] hover:scale-105 shadow-[0_0_20px_rgba(208,83,34,0.4)]">
+              Find Food
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Dashboard Content bounded width */}
+      <div className="w-full max-w-[1440px] mx-auto px-8 relative z-20 -mt-10 lg:-mt-24">
+        
+        {/* Categories Carousel */}
+        <section className="mb-24">
+           <div className="flex items-end justify-between mb-8 px-2">
+            <div>
+              <h2 className="text-[28px] font-bold text-[#1f2937] tracking-tight">Our Curations</h2>
+            </div>
+            <div className="flex gap-3">
+              <button className="w-10 h-10 rounded-full border border-[#e5e7eb] bg-white flex items-center justify-center text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors shadow-sm">
+                <ArrowLeft size={18} strokeWidth={2.5} />
+              </button>
+              <button className="w-10 h-10 rounded-full border border-[#e5e7eb] bg-white flex items-center justify-center text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors shadow-sm">
+                <ArrowRight size={18} strokeWidth={2.5} />
               </button>
             </div>
           </div>
-
-          {/* Right Side: Hero Image & Floating Card */}
-          <div className="relative">
-            <img 
-              src="https://images.unsplash.com/photo-1572656631137-7935297eff55?auto=format&fit=crop&w=1200&q=80" 
-              alt="Truffle Risotto" 
-              className="rounded-3xl shadow-2xl object-cover h-[300px] sm:h-[400px] w-full"
-            />
-            {/* Floating Chef's Choice Card */}
-            <div className="absolute -bottom-6 -left-4 sm:-left-6 rounded-2xl bg-white/90 p-4 shadow-xl backdrop-blur-md border border-white/20 max-w-[240px]">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-orange-600 uppercase tracking-widest">
-                <span className="rounded-full bg-orange-100 p-1">⭐</span> Chef's Choice
-              </div>
-              <h4 className="mt-1 font-bold text-gray-900">Truffle Risotto</h4>
-              <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
-                Hand-picked selection for your refined palate today.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Categories Section */}
-        <section className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold">Explore Categories</h2>
-              <p className="text-sm text-gray-400">Finest cuisines curated for you</p>
-            </div>
-            <button className="text-xs font-bold text-orange-600 hover:underline">View All →</button>
-          </div>
           
-          <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-            {categories.map((cat) => (
-              <div key={cat.name} className="flex flex-col items-center gap-3 min-w-[80px] group cursor-pointer">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 text-2xl transition-all duration-300 group-hover:bg-orange-50 group-hover:shadow-md group-hover:scale-110 border border-gray-100">
-                  {cat.icon}
-                </div>
-                <span className="text-xs font-medium text-gray-600 group-hover:text-orange-600 transition-colors">
-                  {cat.name}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Featured Selection */}
-        <section className="mb-16">
-          <h2 className="text-xl sm:text-2xl font-bold mb-6">Featured Selection</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Big Feature (Pizza) */}
-            <div className="relative group overflow-hidden rounded-3xl shadow-sm border border-gray-100 h-[400px]">
-              <img 
-                src="https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80" 
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                alt="Pizza" 
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute top-4 left-4 rounded-full bg-orange-500/90 px-4 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
-                ✦ POPULAR CHOICE
-              </div>
-              <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <h3 className="font-bold text-lg">Margherita Pizza</h3>
-                <p className="text-sm text-gray-200">Classic Italian • 25 min</p>
-              </div>
-            </div>
-
-            {/* List Features */}
-            <div className="space-y-4">
-              {featuredItems.map((item) => (
-                <div 
-                  key={item.name} 
-                  className="flex items-center gap-4 rounded-2xl bg-white p-3 border border-transparent hover:border-gray-200 hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                >
-                  <div className="h-24 w-24 rounded-xl overflow-hidden flex-shrink-0">
-                    <img 
-                      src={item.image} 
-                      alt={item.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-gray-900 truncate">{item.name}</h4>
-                    <p className="text-xs text-gray-400 truncate">{item.desc}</p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="font-bold text-orange-600">${item.price.toFixed(2)}</span>
-                      <span className="text-[10px] bg-gray-100 px-2 py-1 rounded-full font-bold text-gray-600">
-                        {item.time}
+          <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x pt-2 px-2">
+            {categories.map((cat, idx) => (
+              <div key={cat.name} className="flex flex-col gap-4 min-w-[140px] lg:min-w-[180px] group cursor-pointer snap-start">
+                <div className="h-[180px] lg:h-[240px] w-full rounded-[2rem] overflow-hidden relative shadow-md">
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-500 z-10"></div>
+                  <img 
+                    src={cat.image} 
+                    alt={cat.name} 
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  />
+                  {/* Floating Label */}
+                  <div className="absolute bottom-4 left-4 right-4 z-20">
+                    <div className="bg-white/90 backdrop-blur-md rounded-2xl py-3 px-4 text-center transform translate-y-0 group-hover:-translate-y-1 transition-transform duration-500 border border-white/50 shadow-xl">
+                      <span className="text-[14px] font-black text-[#1f2937] tracking-wider uppercase">
+                        {cat.name}
                       </span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Popular Dishes Section */}
-        <section className="mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold">Popular Dishes</h2>
-            <button className="text-xs font-bold text-orange-600 hover:underline">View All →</button>
+        {/* The Chef's Selection (Heroic feature layout) */}
+        <section className="mb-32">
+          <div className="flex items-center gap-4 mb-12 px-2">
+            <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">Maître D's Selection</h2>
+            <div className="h-px bg-[#e5e7eb] flex-1 mt-2"></div>
+            <Link to="/explore" className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] hover:text-[#1f2937] transition-colors flex items-center gap-1 mt-2">
+              View Entire Menu <ChevronRight size={16} strokeWidth={3} />
+            </Link>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {popularDishes.map((dish) => (
-              <div 
-                key={dish.name} 
-                className="group cursor-pointer rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300"
-              >
-                <div className="h-48 overflow-hidden">
-                  <img 
-                    src={dish.image} 
-                    alt={dish.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-gray-900 truncate">{dish.name}</h3>
-                  <p className="text-xs text-gray-400 mt-1">{dish.restaurant}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="font-bold text-orange-600">${dish.price.toFixed(2)}</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-400">★</span>
-                      <span className="text-xs font-bold text-gray-600">{dish.rating}</span>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-2">
+             
+             {/* Left Column: Big Feature Item */}
+             <div className="lg:col-span-7 group cursor-pointer">
+               <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl h-[560px] border border-[#f3f4f6]">
+                 <img 
+                   src={featuredItems[0].image} 
+                   alt={featuredItems[0].name}
+                   className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-[#1f2937]/90 via-[#1f2937]/20 to-transparent"></div>
+                 
+                 <div className="absolute top-6 left-6 flex gap-3">
+                   <div className="bg-white/95 backdrop-blur-sm rounded-full px-4 py-2 text-[11px] font-black text-[#1f2937] tracking-widest uppercase shadow-lg flex items-center gap-1.5">
+                     <Star size={12} fill="#d05322" className="text-[#d05322]"/> {featuredItems[0].rating} EXCELLENT
+                   </div>
+                   <div className="bg-[#1f2937]/80 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-[11px] font-black text-white tracking-widest uppercase shadow-lg">
+                     {featuredItems[0].time}
+                   </div>
+                 </div>
+
+                 <div className="absolute bottom-8 left-8 right-8 text-white">
+                   <h3 className="text-4xl font-bold mb-3 tracking-tight">{featuredItems[0].name}</h3>
+                   <p className="text-white/80 text-[16px] max-w-[80%] leading-relaxed font-medium line-clamp-2">{featuredItems[0].desc}</p>
+                   
+                   <div className="mt-8 flex items-center justify-between">
+                     <span className="text-[28px] font-black">${featuredItems[0].price.toFixed(2)}</span>
+                     <button className="bg-white hover:bg-[#d05322] text-[#1f2937] hover:text-white rounded-[1.5rem] px-8 py-4 text-[14px] font-black uppercase tracking-widest transition-all duration-300 shadow-xl group-hover:scale-105">
+                       Add to Order
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             {/* Right Column: List format for next features */}
+             <div className="lg:col-span-5 flex flex-col gap-6">
+               {featuredItems.slice(1).map((item) => (
+                 <div key={item.name} className="flex gap-6 p-5 rounded-[2.5rem] bg-white border border-[#e5e7eb] hover:border-[#d05322]/50 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] transition-all duration-500 cursor-pointer group h-[calc(50%-12px)] flex-row items-center">
+                   <div className="w-[160px] h-[160px] md:h-[190px] rounded-[1.5rem] overflow-hidden flex-shrink-0 relative shadow-sm">
+                     <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
+                     <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1 text-[10px] font-black text-[#1f2937] flex items-center gap-1 shadow-md">
+                       <Star size={10} fill="#d05322" className="text-[#d05322]"/> {item.rating}
+                     </div>
+                   </div>
+                   <div className="flex-1 flex flex-col justify-center pr-4 border-l border-transparent">
+                     <h4 className="text-[22px] font-extrabold text-[#1f2937] leading-snug mb-2 group-hover:text-[#d05322] transition-colors">{item.name}</h4>
+                     <p className="text-[#6b7280] text-[13px] leading-relaxed line-clamp-2 mb-4">{item.desc}</p>
+                     <div className="flex items-center justify-between mt-auto">
+                        <span className="text-[20px] font-black text-[#1f2937]">${item.price.toFixed(2)}</span>
+                        <div className="w-10 h-10 rounded-full bg-[#f3f4f6] text-[#1f2937] flex items-center justify-center group-hover:bg-[#d05322] group-hover:text-white transition-all transform group-hover:rotate-12">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        </div>
+                     </div>
+                   </div>
+                 </div>
+               ))}
+             </div>
+
+          </div>
+        </section>
+
+        {/* Premier Kitchens Near You */}
+        <section className="mb-24 px-2">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+            <div>
+              <p className="text-[12px] font-black text-[#d05322] tracking-[0.2em] uppercase mb-2">Exclusive Partnerships</p>
+              <h2 className="text-[32px] font-bold text-[#1f2937] tracking-tight">Premier Kitchens Nearby</h2>
+            </div>
+            <p className="text-[#6b7280] text-[15px] max-w-sm">We've partnered with the finest culinary establishments in your vicinity.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {popularCuisines.map((kitchen) => (
+              <div key={kitchen.name} className="group cursor-pointer">
+                <div className="h-[240px] rounded-[2rem] overflow-hidden mb-6 shadow-sm border border-[#e5e7eb] relative">
+                  <img src={kitchen.image} alt={kitchen.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
+                  <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg">
+                    <MapPin size={12} strokeWidth={3} className="text-[#d05322]" />
+                    <span className="text-[11px] font-black text-[#1f2937] tracking-widest uppercase">{kitchen.location}</span>
                   </div>
+                </div>
+                <div>
+                  <h3 className="text-[20px] font-extrabold text-[#1f2937] mb-1 group-hover:text-[#d05322] transition-colors">{kitchen.name}</h3>
+                  <p className="text-[14px] font-semibold text-[#6b7280]">By Chef {kitchen.chef}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Newsletter Section */}
-        <section className="mb-16 bg-gradient-to-r from-orange-50 to-amber-50 rounded-3xl p-8 sm:p-12">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-              Get Exclusive Offers
-            </h2>
-            <p className="text-gray-500 mb-6">
-              Subscribe to our newsletter and receive special deals and updates
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input 
-                type="email" 
-                placeholder="Your email address" 
-                className="flex-1 px-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:border-orange-400"
-              />
-              <button className="px-6 py-3 bg-orange-600 text-white rounded-full font-bold text-sm hover:bg-orange-700 transition whitespace-nowrap">
-                SUBSCRIBE
-              </button>
+        {/* Epic Newsletter Banner */}
+        <section className="mb-32 px-2">
+          <div className="bg-[#1f2937] rounded-[3rem] overflow-hidden relative flex flex-col md:flex-row items-center border border-[#374151] shadow-2xl">
+            {/* Dark background graphic element */}
+            <div className="absolute right-0 top-0 bottom-0 w-[60%] bg-[#d05322]/10 blur-[100px] rounded-full mix-blend-screen pointer-events-none"></div>
+            
+            <div className="p-12 md:p-16 lg:px-24 flex-1 relative z-10">
+              <span className="text-[12px] font-black text-[#d05322] tracking-[0.2em] uppercase mb-4 block">The Inner Circle</span>
+              <h2 className="text-[36px] md:text-[48px] font-bold text-white leading-tight tracking-tight mb-6">
+                Receive exclusive <br/>off-menu pairings.
+              </h2>
+              <p className="text-[16px] text-[#9ca3af] max-w-md mb-8">Join the VIP list to get access to limited-edition seasonal dishes and chef-curated tasting events.</p>
+              
+              <div className="flex bg-white/5 backdrop-blur-md border border-white/20 rounded-full p-1.5 max-w-md focus-within:bg-white/10 transition-colors">
+                <input type="email" placeholder="Enter your email address" className="flex-1 bg-transparent px-6 text-white text-[14px] outline-none placeholder:text-[#9ca3af]" />
+                <button className="bg-[#d05322] hover:bg-[#b84318] text-white rounded-full px-8 py-4 text-[13px] font-black uppercase tracking-widest transition-colors shadow-lg">
+                  Subscribe
+                </button>
+              </div>
+            </div>
+
+            <div className="w-full md:w-[45%] h-[300px] md:h-auto relative z-10 self-stretch">
+               <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80" alt="Pouring wine" className="w-full h-full object-cover rounded-tl-[3rem] rounded-bl-[3rem] md:rounded-bl-none"/>
             </div>
           </div>
         </section>
+
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-100">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div>
-              <h3 className="font-bold text-gray-900 mb-4">About Us</h3>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li className="hover:text-orange-600 cursor-pointer">Our Story</li>
-                <li className="hover:text-orange-600 cursor-pointer">Careers</li>
-                <li className="hover:text-orange-600 cursor-pointer">Press</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li className="hover:text-orange-600 cursor-pointer">Help Center</li>
-                <li className="hover:text-orange-600 cursor-pointer">Contact Us</li>
-                <li className="hover:text-orange-600 cursor-pointer">FAQs</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-4">Legal</h3>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li className="hover:text-orange-600 cursor-pointer">Terms of Service</li>
-                <li className="hover:text-orange-600 cursor-pointer">Privacy Policy</li>
-                <li className="hover:text-orange-600 cursor-pointer">Cookie Policy</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-4">Follow Us</h3>
-              <div className="flex gap-4">
-                <span className="text-2xl cursor-pointer hover:text-orange-600">📱</span>
-                <span className="text-2xl cursor-pointer hover:text-orange-600">📘</span>
-                <span className="text-2xl cursor-pointer hover:text-orange-600">📷</span>
-                <span className="text-2xl cursor-pointer hover:text-orange-600">🐦</span>
-              </div>
-            </div>
+      {/* Footer exactly like mockup bottom section, polished */}
+      <footer className="bg-white border-t border-[#f3f4f6] pt-20 pb-10">
+        <div className="w-full max-w-[1440px] mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div>
+            <h3 className="font-bold italic text-[#d05322] text-[20px] mb-4 tracking-tight">Digital Maître D'</h3>
+            <p className="text-[#6b7280] text-[14px] max-w-[400px] leading-relaxed font-medium">
+              Elevating the at-home dining experience through technology and culinary expertise. We bridge the gap between fine dining and sophisticated convenience.
+            </p>
           </div>
-          <div className="mt-8 pt-8 border-t border-gray-200 text-center text-sm text-gray-400">
-            © 2024 FoodDelivery. All rights reserved.
+          <div className="flex flex-col md:items-end justify-between">
+            <div className="flex gap-8 text-[13px] font-bold tracking-widest uppercase text-[#1f2937]">
+              <span className="hover:text-[#d05322] transition-colors cursor-pointer">Privacy</span>
+              <span className="hover:text-[#d05322] transition-colors cursor-pointer">Terms</span>
+              <span className="hover:text-[#d05322] transition-colors cursor-pointer">Support</span>
+              <span className="hover:text-[#d05322] transition-colors cursor-pointer">Careers</span>
+            </div>
+            <p className="text-[#9ca3af] text-[12px] font-semibold mt-12 md:mt-0 tracking-wider">
+              © 2024 DIGITAL MAITRE D' TECHNOLOGIES. ALL RIGHTS RESERVED.
+            </p>
           </div>
         </div>
       </footer>
