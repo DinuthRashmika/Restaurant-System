@@ -1,10 +1,18 @@
 import { Link } from "react-router-dom";
 import { Search, Bell, User, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getAllMenuItems } from "../../services/menuService"; // Added API import
 
 export default function CustomerDashboard() {
   const [scrolled, setScrolled] = useState(false);
+  
+  // --- NEW STATES FOR DYNAMIC MENU ---
+  const [menuItems, setMenuItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
 
+  // Scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -13,46 +21,48 @@ export default function CustomerDashboard() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const categories = [
-    { name: "Signatures", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" },
-    { name: "Sushi", image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=400&q=80" },
-    { name: "Pasta", image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=400&q=80" },
-    { name: "Steak", image: "https://images.unsplash.com/photo-1432139555190-58524dae6a55?auto=format&fit=crop&w=400&q=80" },
-    { name: "Vegan", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80" },
-    { name: "Dessert", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=400&q=80" },
-  ];
+  // --- FETCH & FILTER LOGIC ---
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const response = await getAllMenuItems();
+        if (response.success) {
+          setMenuItems(response.data);
+          setFilteredItems(response.data); // Initialize with all items
+        }
+      } catch (error) {
+        console.error("Error fetching menu items:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchItems();
+  }, []);
 
-  const featuredItems = [
-    { 
-      name: "Truffle & Mushroom Risotto", 
-      desc: "Arborio rice, black truffle shavings, aged parmesan, micro greens", 
-      price: 34.00, 
-      time: "25 MIN",
-      rating: 4.9,
-      image: "https://images.unsplash.com/photo-1572656631137-7935297eff55?auto=format&fit=crop&w=800&q=80"
-    },
-    { 
-      name: "Pan-Seared Scallops", 
-      desc: "Cauliflower purée, brown butter caper sauce, crispy pancetta", 
-      price: 42.00, 
-      time: "20 MIN",
-      rating: 4.8,
-      image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80"
-    },
-    { 
-      name: "O-Toro Sashimi Platter", 
-      desc: "Premium fatty tuna belly, fresh wasabi root, specialized soy blend", 
-      price: 68.00, 
-      time: "15 MIN",
-      rating: 5.0,
-      image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80"
+  useEffect(() => {
+    if (selectedCategory === "All") {
+      setFilteredItems(menuItems);
+    } else {
+      const filtered = menuItems.filter(item => 
+        item.category && item.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
+      setFilteredItems(filtered);
     }
+  }, [menuItems, selectedCategory]);
+
+  // --- UPDATED CATEGORIES TO ACT AS FILTERS ---
+  const categories = [
+    { name: "All", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80" },
+    { name: "Main Course", image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=400&q=80" },
+    { name: "Appetizers", image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=400&q=80" },
+    { name: "Desserts", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&w=400&q=80" },
+    { name: "Beverages", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80" }
   ];
 
   const popularCuisines = [
     { name: "Italian Kitchen", chef: "Massimo Bottura", location: "Downtown · 1.2mi", image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80" },
     { name: "The Wagyu House", chef: "Kenji Sato", location: "Midtown · 3.4mi", image: "https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=600&q=80" },
-    { name: "Botanica Vegan", chef: "Sarah Wells", location: "Westside · 0.8mi", image: "https://images.unsplash.com/photo-1490818387583-1b0570c867ee?auto=format&fit=crop&w=600&q=80" },
+    { name: "Botanica Vegan", chef: "Sarah Wells", location: "Westside · 0.8mi", image: "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80" },
   ];
 
   return (
@@ -69,7 +79,7 @@ export default function CustomerDashboard() {
               <Link to="/customer/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white'} flex flex-col after:w-full after:h-0.5 after:bg-[#d05322] after:mt-1`}>
                 Explore
               </Link>
-              <Link to="/order-history" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
+              <Link to="/customer/orders" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
                 Orders
               </Link>
               <Link to="/favorites" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-500 ${scrolled ? 'text-[#6b7280] hover:text-[#1f2937]' : 'text-white/70 hover:text-white'}`}>
@@ -82,25 +92,24 @@ export default function CustomerDashboard() {
             <button className={`transition-colors duration-500 hover:scale-110 ${scrolled ? 'text-[#1f2937]' : 'text-white'}`}>
               <Bell size={22} strokeWidth={2.5} />
             </button>
-            <div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-white/20 cursor-pointer hover:border-[#d05322] transition-colors" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+            <Link to="/profile">
+              <div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-white/20 cursor-pointer hover:border-[#d05322] transition-colors" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+            </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
       <section className="relative w-full h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
-        {/* Deep, immersive background image */}
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1514361892635-6b07e31e75f9?auto=format&fit=crop&w=2000&q=80" 
             alt="Fine dining table" 
             className="w-full h-full object-cover"
           />
-          {/* Complex Gradient Overlay to ensure text readability while keeping vibe */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-[#fafaf9]"></div>
         </div>
 
-        {/* Hero Content */}
         <div className="relative z-10 w-full max-w-[1440px] px-8 flex flex-col items-center text-center mt-20">
           <span className="text-[#d05322] font-black tracking-[0.3em] uppercase text-[11px] mb-6 flex items-center gap-2">
             <div className="w-8 h-px bg-[#d05322]"></div>
@@ -116,7 +125,6 @@ export default function CustomerDashboard() {
             Experience the city's highest-tier culinary creations, brought to your door with white-glove precision.
           </p>
 
-          {/* Premium Glassmorphic Search Bar */}
           <div className="flex items-center bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full p-2 w-full max-w-[680px] shadow-2xl transition-all hover:bg-white/20 focus-within:bg-white focus-within:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] group">
             <div className="pl-6 text-white group-focus-within:text-[#d05322] transition-colors">
               <Search size={22} strokeWidth={2.5}/>
@@ -136,8 +144,8 @@ export default function CustomerDashboard() {
       {/* Main Dashboard Content bounded width */}
       <div className="w-full max-w-[1440px] mx-auto px-8 relative z-20 -mt-10 lg:-mt-24">
         
-        {/* Categories Carousel */}
-        <section className="mb-24">
+        {/* Categories Carousel - UPDATED TO BE FUNCTIONAL */}
+        <section className="mb-16">
            <div className="flex items-end justify-between mb-8 px-2">
             <div>
               <h2 className="text-[28px] font-bold text-[#1f2937] tracking-tight">Our Curations</h2>
@@ -153,10 +161,16 @@ export default function CustomerDashboard() {
           </div>
           
           <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x pt-2 px-2">
-            {categories.map((cat, idx) => (
-              <div key={cat.name} className="flex flex-col gap-4 min-w-[140px] lg:min-w-[180px] group cursor-pointer snap-start">
-                <div className="h-[180px] lg:h-[240px] w-full rounded-[2rem] overflow-hidden relative shadow-md">
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-500 z-10"></div>
+            {categories.map((cat) => (
+              <div 
+                key={cat.name} 
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`flex flex-col gap-4 min-w-[140px] lg:min-w-[180px] group cursor-pointer snap-start rounded-[2.2rem] p-1.5 transition-all duration-300 ${
+                  selectedCategory === cat.name ? 'bg-[#d05322] shadow-[0_10px_30px_rgba(208,83,34,0.3)]' : 'bg-transparent'
+                }`}
+              >
+                <div className="h-[180px] lg:h-[240px] w-full rounded-[1.8rem] overflow-hidden relative shadow-md">
+                  <div className={`absolute inset-0 transition-colors duration-500 z-10 ${selectedCategory === cat.name ? 'bg-black/0' : 'bg-black/20 group-hover:bg-black/0'}`}></div>
                   <img 
                     src={cat.image} 
                     alt={cat.name} 
@@ -164,8 +178,8 @@ export default function CustomerDashboard() {
                   />
                   {/* Floating Label */}
                   <div className="absolute bottom-4 left-4 right-4 z-20">
-                    <div className="bg-white/90 backdrop-blur-md rounded-2xl py-3 px-4 text-center transform translate-y-0 group-hover:-translate-y-1 transition-transform duration-500 border border-white/50 shadow-xl">
-                      <span className="text-[14px] font-black text-[#1f2937] tracking-wider uppercase">
+                    <div className="bg-white/90 backdrop-blur-md rounded-2xl py-3 px-4 text-center border border-white/50 shadow-xl">
+                      <span className={`text-[14px] font-black tracking-wider uppercase ${selectedCategory === cat.name ? 'text-[#d05322]' : 'text-[#1f2937]'}`}>
                         {cat.name}
                       </span>
                     </div>
@@ -176,76 +190,65 @@ export default function CustomerDashboard() {
           </div>
         </section>
 
-        {/* The Chef's Selection (Heroic feature layout) */}
+        {/* DYNAMIC MENU ITEMS GRID (Replaces static Chef's Selection) */}
         <section className="mb-32">
           <div className="flex items-center gap-4 mb-12 px-2">
-            <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">Maitre D's Selection</h2>
+            <h2 className="text-[32px] md:text-[40px] font-bold text-[#1f2937] tracking-tight">
+              {selectedCategory === "All" ? "Full Collection" : `${selectedCategory} Selection`}
+            </h2>
             <div className="h-px bg-[#e5e7eb] flex-1 mt-2"></div>
-            <Link to="/explore" className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] hover:text-[#1f2937] transition-colors flex items-center gap-1 mt-2">
-              View Entire Menu <ChevronRight size={16} strokeWidth={3} />
+            <Link className="text-[13px] font-bold tracking-widest uppercase text-[#d05322] flex items-center gap-1 mt-2">
+              {filteredItems.length} Items
             </Link>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 px-2">
-             
-             {/* Left Column: Big Feature Item */}
-             <div className="lg:col-span-7 group cursor-pointer">
-               <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl h-[560px] border border-[#f3f4f6]">
-                 <img 
-                   src={featuredItems[0].image} 
-                   alt={featuredItems[0].name}
-                   className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                 />
-                 <div className="absolute inset-0 bg-gradient-to-t from-[#1f2937]/90 via-[#1f2937]/20 to-transparent"></div>
-                 
-                 <div className="absolute top-6 left-6 flex gap-3">
-                   <div className="bg-white/95 backdrop-blur-sm rounded-full px-4 py-2 text-[11px] font-black text-[#1f2937] tracking-widest uppercase shadow-lg flex items-center gap-1.5">
-                     <Star size={12} fill="#d05322" className="text-[#d05322]"/> {featuredItems[0].rating} EXCELLENT
-                   </div>
-                   <div className="bg-[#1f2937]/80 backdrop-blur-md border border-white/10 rounded-full px-4 py-2 text-[11px] font-black text-white tracking-widest uppercase shadow-lg">
-                     {featuredItems[0].time}
-                   </div>
-                 </div>
-
-                 <div className="absolute bottom-8 left-8 right-8 text-white">
-                   <h3 className="text-4xl font-bold mb-3 tracking-tight">{featuredItems[0].name}</h3>
-                   <p className="text-white/80 text-[16px] max-w-[80%] leading-relaxed font-medium line-clamp-2">{featuredItems[0].desc}</p>
-                   
-                   <div className="mt-8 flex items-center justify-between">
-                     <span className="text-[28px] font-black">${featuredItems[0].price.toFixed(2)}</span>
-                     <button className="bg-white hover:bg-[#d05322] text-[#1f2937] hover:text-white rounded-[1.5rem] px-8 py-4 text-[14px] font-black uppercase tracking-widest transition-all duration-300 shadow-xl group-hover:scale-105">
-                       Add to Order
-                     </button>
-                   </div>
-                 </div>
-               </div>
+          {loading ? (
+             <div className="flex justify-center items-center h-48">
+               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d05322]"></div>
              </div>
-
-             {/* Right Column: List format for next features */}
-             <div className="lg:col-span-5 flex flex-col gap-6">
-               {featuredItems.slice(1).map((item) => (
-                 <div key={item.name} className="flex gap-6 p-5 rounded-[2.5rem] bg-white border border-[#e5e7eb] hover:border-[#d05322]/50 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] transition-all duration-500 cursor-pointer group h-[calc(50%-12px)] flex-row items-center">
-                   <div className="w-[160px] h-[160px] md:h-[190px] rounded-[1.5rem] overflow-hidden flex-shrink-0 relative shadow-sm">
-                     <img src={item.image} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
-                     <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1 text-[10px] font-black text-[#1f2937] flex items-center gap-1 shadow-md">
-                       <Star size={10} fill="#d05322" className="text-[#d05322]"/> {item.rating}
-                     </div>
-                   </div>
-                   <div className="flex-1 flex flex-col justify-center pr-4 border-l border-transparent">
-                     <h4 className="text-[22px] font-extrabold text-[#1f2937] leading-snug mb-2 group-hover:text-[#d05322] transition-colors">{item.name}</h4>
-                     <p className="text-[#6b7280] text-[13px] leading-relaxed line-clamp-2 mb-4">{item.desc}</p>
-                     <div className="flex items-center justify-between mt-auto">
-                        <span className="text-[20px] font-black text-[#1f2937]">${item.price.toFixed(2)}</span>
-                        <div className="w-10 h-10 rounded-full bg-[#f3f4f6] text-[#1f2937] flex items-center justify-center group-hover:bg-[#d05322] group-hover:text-white transition-all transform group-hover:rotate-12">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        </div>
-                     </div>
-                   </div>
-                 </div>
-               ))}
-             </div>
-
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 px-2">
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
+                  <div key={item.id} className="group cursor-pointer bg-white rounded-[2.5rem] border border-[#e5e7eb] hover:border-[#d05322]/50 hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] transition-all duration-500 overflow-hidden flex flex-col h-full">
+                    <div className="h-[220px] w-full overflow-hidden relative shadow-sm">
+                      {item.imageUrl ? (
+                        <img 
+                          src={`http://localhost:8082${item.imageUrl}`} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center text-gray-400">No Image</div>
+                      )}
+                      <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-[11px] font-black text-[#1f2937] flex items-center gap-1 shadow-md uppercase tracking-wider">
+                        <Star size={12} fill="#d05322" className="text-[#d05322]"/> New
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                      <div>
+                        <h4 className="text-[20px] font-extrabold text-[#1f2937] leading-snug mb-2 group-hover:text-[#d05322] transition-colors">{item.name}</h4>
+                        <p className="text-[#6b7280] text-[14px] leading-relaxed line-clamp-2 mb-6">{item.description}</p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#f3f4f6]">
+                         <span className="text-[24px] font-black text-[#1f2937]">${item.price.toFixed(2)}</span>
+                         <button className="w-12 h-12 rounded-full bg-[#f3f4f6] text-[#1f2937] flex items-center justify-center group-hover:bg-[#d05322] group-hover:text-white transition-all transform group-hover:rotate-12 shadow-sm">
+                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                         </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-full h-64 flex flex-col items-center justify-center border-2 border-dashed border-[#e5e7eb] rounded-[3rem]">
+                  <p className="text-[18px] font-bold text-[#6b7280] mb-2">No items discovered.</p>
+                  <p className="text-[14px] text-[#9ca3af]">We are currently preparing our {selectedCategory} menu.</p>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Premier Kitchens Near You */}
@@ -281,7 +284,6 @@ export default function CustomerDashboard() {
         {/* Epic Newsletter Banner */}
         <section className="mb-32 px-2">
           <div className="bg-[#1f2937] rounded-[3rem] overflow-hidden relative flex flex-col md:flex-row items-center border border-[#374151] shadow-2xl">
-            {/* Dark background graphic element */}
             <div className="absolute right-0 top-0 bottom-0 w-[60%] bg-[#d05322]/10 blur-[100px] rounded-full mix-blend-screen pointer-events-none"></div>
             
             <div className="p-12 md:p-16 lg:px-24 flex-1 relative z-10">
@@ -307,7 +309,7 @@ export default function CustomerDashboard() {
 
       </div>
 
-      {/* Footer exactly like mockup bottom section, polished */}
+      {/* Footer */}
       <footer className="bg-white border-t border-[#f3f4f6] pt-20 pb-10">
         <div className="w-full max-w-[1440px] mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-12">
           <div>
