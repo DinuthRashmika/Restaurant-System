@@ -42,5 +42,4 @@ public class CustomerNotificationController {
         return ResponseEntity.ok(savedNotification); 
     }
 
-
 }
