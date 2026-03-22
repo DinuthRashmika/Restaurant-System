@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, Bell, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin, Sparkles, ChefHat } from "lucide-react";
+import { Search, Bell, Star, ArrowRight, ArrowLeft, ChevronRight, MapPin, Sparkles, ChefHat, User, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getAllMenuItems } from "../../services/menuService";
+import { useAuth } from "../../context/AuthContext";
 
 export default function CustomerDashboard() {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate(); 
+  const { auth, logout } = useAuth();
   
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -15,6 +17,23 @@ export default function CustomerDashboard() {
   const [categories, setCategories] = useState([
     { name: "All", image: "https://images.unsplash.com/photo-1544025162-8315ea07fcc2?auto=format&fit=crop&w=400&q=80" }
   ]);
+
+  // --- START REAL PROFILE PIC LOGIC ---
+  const storedAuth = JSON.parse(localStorage.getItem("auth")) || {};
+  const currentUser = auth?.user || auth || storedAuth?.user || storedAuth || {};
+  
+  // Extract User ID to look into the specific local cache
+  const userId = currentUser.id || currentUser._id || currentUser.userId || "Unassigned";
+  
+  // Hunt for the cached image (the boy pic) or the auth image
+  const cachedImage = localStorage.getItem(`frontend_image_cache_${userId}`);
+  const profileImage = cachedImage || currentUser.profileImage || currentUser.avatarUrl || "";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+  // --- END REAL PROFILE PIC LOGIC ---
 
   useEffect(() => {
     const handleScroll = () => {
@@ -86,7 +105,7 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-[#fafaf9] font-sans selection:bg-[#d05322] selection:text-white pb-16">
       
       {/* Immersive Hero Navbar - Ultra Premium Glassmorphism */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-in-out ${scrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm py-4 border-b border-white/20' : 'bg-gradient-to-b from-black/60 to-transparent py-8'}`}>
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-in-out ${scrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm py-4 border-b border-white/20' : 'bg-gradient-to-b from-black/70 to-transparent py-8'}`}>
         <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
           <div className="flex items-center gap-16">
             <h1 className={`text-2xl font-black italic tracking-tighter transition-colors duration-500 ${scrolled ? 'text-[#1f2937]' : 'text-white drop-shadow-md'}`}>
@@ -111,8 +130,24 @@ export default function CustomerDashboard() {
             </button>
             <Link to="/profile" className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-[#d05322] to-[#b84318] rounded-full opacity-0 group-hover:opacity-100 blur transition-opacity duration-500"></div>
-              <div className={`relative h-11 w-11 rounded-full bg-cover bg-center border-2 transition-colors duration-500 shadow-xl ${scrolled ? 'border-white' : 'border-white/30'}`} style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+              {/* UPDATED: Profile picture container now uses the real image/boy pic or fallback User icon */}
+              <div className={`relative h-11 w-11 rounded-full border-2 transition-colors duration-500 shadow-xl overflow-hidden flex items-center justify-center bg-gray-100 ${scrolled ? 'border-white' : 'border-white/30'}`}>
+                {profileImage ? (
+                  <div 
+                    className="w-full h-full bg-cover bg-center" 
+                    style={{ backgroundImage: `url('${profileImage}')` }}
+                  />
+                ) : (
+                  <User size={24} className="text-gray-400" />
+                )}
+              </div>
             </Link>
+            
+            {/* Added Logout to Header for better usability */}
+            <div className={`h-6 w-px hidden sm:block mx-1 ${scrolled ? 'bg-gray-200' : 'bg-white/20'}`}></div>
+            <button onClick={handleLogout} className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 ${scrolled ? 'text-gray-400 hover:text-[#d05322] hover:bg-orange-50' : 'text-white hover:bg-white/10'}`}>
+              <LogOut size={20} strokeWidth={2.5} />
+            </button>
           </div>
         </div>
       </header>
@@ -199,7 +234,6 @@ export default function CustomerDashboard() {
                     className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
                   />
                   <div className="absolute bottom-6 left-6 right-6 z-20">
-                    {/* REDUCED BLUR: backdrop-blur-md changed to backdrop-blur-sm */}
                     <div className={`backdrop-blur-sm rounded-2xl py-4 px-4 text-center border transition-all duration-500 ${selectedCategory === cat.name ? 'bg-white text-[#d05322] border-transparent shadow-xl' : 'bg-white/20 border-white/40 text-white group-hover:bg-white/30'}`}>
                       <span className="text-[13px] font-black tracking-[0.15em] uppercase">
                         {cat.name}
@@ -225,9 +259,9 @@ export default function CustomerDashboard() {
           </div>
           
           {loading ? (
-             <div className="flex justify-center items-center h-64">
-               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#d05322]"></div>
-             </div>
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#d05322]"></div>
+              </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 px-2">
               {filteredItems.length > 0 ? (
@@ -256,16 +290,16 @@ export default function CustomerDashboard() {
                       </div>
                       
                       <div className="flex items-end justify-between mt-auto">
-                         <div className="flex flex-col">
-                           <span className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase mb-1">Price</span>
-                           <span className="text-[28px] font-extrabold text-[#1f2937] leading-none">${item.price.toFixed(2)}</span>
-                         </div>
-                         <button 
-                           onClick={() => navigate('/menu')}
-                           className="w-14 h-14 rounded-full bg-[#1f2937] text-white flex items-center justify-center group-hover:bg-[#d05322] transition-colors duration-300 shadow-xl group-hover:shadow-[0_10px_20px_rgba(208,83,34,0.3)]"
-                         >
-                           <ArrowRight size={22} strokeWidth={2.5} className="transform group-hover:translate-x-1 transition-transform" />
-                         </button>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase mb-1">Price</span>
+                            <span className="text-[28px] font-extrabold text-[#1f2937] leading-none">${item.price.toFixed(2)}</span>
+                          </div>
+                          <button 
+                            onClick={() => navigate('/menu')}
+                            className="w-14 h-14 rounded-full bg-[#1f2937] text-white flex items-center justify-center group-hover:bg-[#d05322] transition-colors duration-300 shadow-xl group-hover:shadow-[0_10px_20px_rgba(208,83,34,0.3)]"
+                          >
+                            <ArrowRight size={22} strokeWidth={2.5} className="transform group-hover:translate-x-1 transition-transform" />
+                          </button>
                       </div>
                     </div>
                   </div>
@@ -341,9 +375,9 @@ export default function CustomerDashboard() {
             </div>
 
             <div className="w-full md:w-[40%] h-[400px] md:h-auto relative z-10 self-stretch">
-               <div className="absolute inset-0 bg-gradient-to-r from-[#111827] to-transparent z-10 hidden md:block"></div>
-               <div className="absolute inset-0 bg-gradient-to-t from-[#111827] to-transparent z-10 md:hidden"></div>
-               <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80" alt="Pouring wine" className="w-full h-full object-cover"/>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#111827] to-transparent z-10 hidden md:block"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111827] to-transparent z-10 md:hidden"></div>
+                <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80" alt="Pouring wine" className="w-full h-full object-cover"/>
             </div>
           </div>
         </section>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { getAllMenuItems } from "../../services/menuService";
 import { useCart } from "../../context/CartContext";
-import { Search, Bell, LogOut, ShoppingBag, ChevronRight, Sparkles, Plus } from "lucide-react";
+import { Search, Bell, LogOut, ShoppingBag, ChevronRight, Sparkles, Plus, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export default function MenuView() {
@@ -11,7 +11,7 @@ export default function MenuView() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { auth, logout } = useAuth();
   const currentPath = location.pathname;
 
   const [menuItems, setMenuItems] = useState([]);
@@ -24,6 +24,14 @@ export default function MenuView() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const { cart, addToCart } = useCart();
+
+  // --- START REAL PROFILE PIC LOGIC ---
+  const storedAuth = JSON.parse(localStorage.getItem("auth")) || {};
+  const currentUser = auth?.user || auth || storedAuth?.user || storedAuth || {};
+  const userId = currentUser.id || currentUser._id || currentUser.userId || "Unassigned";
+  const cachedImage = localStorage.getItem(`frontend_image_cache_${userId}`);
+  const profileImage = cachedImage || currentUser.profileImage || currentUser.avatarUrl || "";
+  // --- END REAL PROFILE PIC LOGIC ---
 
   useEffect(() => {
     const handleScroll = () => {
@@ -51,8 +59,6 @@ export default function MenuView() {
       const response = await getAllMenuItems();
       if (response.success) {
         const items = response.data;
-        
-        // Immediately drop items that are switched off by the owner!
         const availableItemsOnly = items.filter(item => item.available === true);
         setMenuItems(availableItemsOnly);
         
@@ -61,13 +67,11 @@ export default function MenuView() {
 
         availableItemsOnly.forEach(item => {
           if (dynamicCategories.length >= 8) return;
-
           if (item.category && !addedCategories.has(item.category)) {
             addedCategories.add(item.category);
             dynamicCategories.push(item.category);
           }
         });
-
         setCategories(dynamicCategories);
       }
     } catch (error) {
@@ -79,15 +83,11 @@ export default function MenuView() {
 
   const filterItems = () => {
     let filtered = [...menuItems];
-    
-    // 1. Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter(item => 
         item.category && item.category.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
-    
-    // 2. Filter by search query (name or description)
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(item => 
@@ -95,7 +95,6 @@ export default function MenuView() {
         (item.description && item.description.toLowerCase().includes(query))
       );
     }
-    
     setFilteredItems(filtered);
   };
 
@@ -130,10 +129,22 @@ export default function MenuView() {
             <button className={`transition-all duration-500 hover:scale-110 ${scrolled ? 'text-[#1f2937] hover:text-[#d05322]' : 'text-white hover:text-gray-200 drop-shadow-md'}`}>
               <Bell size={22} strokeWidth={2.5} />
             </button>
+            
             <Link to="/profile" className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-[#d05322] to-[#b84318] rounded-full opacity-0 group-hover:opacity-100 blur transition-opacity duration-500"></div>
-              <div className={`relative h-10 w-10 rounded-full bg-cover bg-center border-2 transition-colors duration-500 shadow-xl ${scrolled ? 'border-white' : 'border-white/30'}`} style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+              {/* UPDATED: REAL PROFILE PIC OR USER ICON */}
+              <div className={`relative h-10 w-10 rounded-full border-2 transition-colors duration-500 shadow-xl overflow-hidden flex items-center justify-center bg-gray-100 ${scrolled ? 'border-white' : 'border-white/30'}`}>
+                {profileImage ? (
+                  <div 
+                    className="w-full h-full bg-cover bg-center" 
+                    style={{backgroundImage: `url('${profileImage}')`}} 
+                  />
+                ) : (
+                  <User size={20} className="text-gray-400" />
+                )}
+              </div>
             </Link>
+
             <div className={`h-6 w-px hidden sm:block mx-2 ${scrolled ? 'bg-gray-200' : 'bg-white/20'}`}></div>
             <button onClick={handleLogout} className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 ${scrolled ? 'text-gray-400 hover:text-[#d05322] hover:bg-orange-50' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
               <LogOut size={20} strokeWidth={2.5} />

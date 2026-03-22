@@ -11,7 +11,8 @@ import {
   Clock, 
   ChefHat, 
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  User // Added User icon for fallback
 } from "lucide-react"; 
 
 export default function OrderHistory() {
@@ -34,6 +35,15 @@ export default function OrderHistory() {
   const customerId = auth?.user?.id || auth?.userId || auth?.id || storedAuth?.user?.id || storedAuth?.id;
   const customerName = auth?.user?.name || auth?.user?.fullName || storedAuth?.user?.name;
   const customerEmail = auth?.user?.email || storedAuth?.user?.email || "customer@digitalmaitred.com";
+
+  // --- START REAL PROFILE PIC LOGIC ---
+  const currentUser = auth?.user || auth || storedAuth?.user || storedAuth || {};
+  const userIdForCache = currentUser.id || currentUser._id || currentUser.userId || "Unassigned";
+  
+  // Hunt for the cached image (the boy pic) or the auth image
+  const cachedImage = localStorage.getItem(`frontend_image_cache_${userIdForCache}`);
+  const profileImage = cachedImage || currentUser.profileImage || currentUser.avatarUrl || "";
+  // --- END REAL PROFILE PIC LOGIC ---
 
   // Scroll effect for immersive navbar
   useEffect(() => {
@@ -222,7 +232,17 @@ export default function OrderHistory() {
             </button>
             <Link to="/profile" className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-[#d05322] to-[#b84318] rounded-full opacity-0 group-hover:opacity-100 blur transition-opacity duration-500"></div>
-              <div className={`relative h-10 w-10 rounded-full bg-cover bg-center border-2 transition-colors duration-500 shadow-xl ${scrolled ? 'border-white' : 'border-white/30'}`} style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div>
+              {/* UPDATED: Profile Picture uses the real update pic or fallback Icon */}
+              <div className={`relative h-10 w-10 rounded-full border-2 transition-colors duration-500 shadow-xl overflow-hidden flex items-center justify-center bg-gray-100 ${scrolled ? 'border-white' : 'border-white/30'}`}>
+                {profileImage ? (
+                  <div 
+                    className="w-full h-full bg-cover bg-center" 
+                    style={{backgroundImage: `url('${profileImage}')`}} 
+                  />
+                ) : (
+                  <User size={20} className="text-gray-400" />
+                )}
+              </div>
             </Link>
             <div className={`h-6 w-px hidden sm:block mx-2 ${scrolled ? 'bg-gray-200' : 'bg-white/20'}`}></div>
             <button onClick={handleLogout} className={`flex items-center justify-center h-10 w-10 rounded-full transition-all duration-300 ${scrolled ? 'text-gray-400 hover:text-[#d05322] hover:bg-orange-50' : 'text-white/80 hover:text-white hover:bg-white/10'}`}>
