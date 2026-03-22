@@ -16,8 +16,6 @@ servers:
 tags:
   - name: Customer Notifications
     description: Notifications sent to customers about their orders
-  - name: Delivery Notifications
-    description: Notifications sent to delivery personnel
   - name: Restaurant Notifications
     description: Notifications sent to restaurants
   - name: Admin Notifications
@@ -108,104 +106,6 @@ paths:
               restaurentName: "Burger Hut"
               total: 1500.00
               sendEmail: true
-              sendSMS: true
-      responses:
-        "200":
-          description: Notification sent and saved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotificationResponse'
-        "400":
-          description: Bad Request
-        "500":
-          description: Internal Server Error
-
-# ---- DELIVERY ENDPOINTS
-  /api/v1/notifications/delivery/delivery-assinged:
-    post:
-      tags:
-        - Delivery Notifications
-      summary: Send Delivery Person Assigned notification
-      description: >
-        Notifies the delivery person that they have been assigned a new order.And also notifies the customer that a delivery person is on the way.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeliveryNotificationRequest'
-            example:
-              orderId: "ORD-001"
-              recipientEmail: "driver@email.com"
-              recipientPhone: "+94779876543"
-              restaurantName: "Burger Hut"
-              deliveryAddress: "123 Main St, Colombo"
-              sendEmail: true
-              sendSMS: true
-      responses:
-        "200":
-          description: Notification sent and saved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotificationResponse'
-        "400":
-          description: Bad Request
-        "500":
-          description: Internal Server Error
-
-  /api/v1/notifications/delivery/on-the-way:
-    post:
-      tags:
-        - Delivery Notifications
-      summary: Send Order On The Way notification
-      description: Delivery person has picked up the order
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeliveryNotificationRequest'
-            example:
-              orderId: "ORD-001"
-              recipientEmail: "driver@email.com"
-              recipientPhone: "+94779876543"
-              restaurantName: "Burger Hut"
-              deliveryAddress: "123 Main St, Colombo"
-              sendEmail: true
-              sendSMS: true
-      responses:
-        "200":
-          description: Notification sent and saved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotificationResponse'
-        "400":
-          description: Bad Request
-        "500":
-          description: Internal Server Error
-
-  /api/v1/notifications/delivery/delivery-cancelled:
-    post:
-      tags:
-        - Delivery Notifications
-      summary: Send Delivery Cancelled notification
-      description: Notifies that the delivery has been cancelled due to unforeseen circumstances.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeliveryNotificationRequest'
-            example:
-              orderId: "ORD-001"
-              recipientEmail: "driver@email.com"
-              recipientPhone: "+94779876543"
-              restaurantName: "Burger Hut"
-              deliveryAddress: "123 Main St, Colombo"
-              sendEmail: false
               sendSMS: true
       responses:
         "200":
@@ -385,39 +285,6 @@ components:
           type: boolean
           example: false
 
-    DeliveryNotificationRequest:
-      type: object
-      required:
-        - orderId
-        - recipientEmail
-        - restaurantName
-        - deliveryAddress
-        - sendEmail
-        - sendSMS
-      properties:
-        orderId:
-          type: string
-          example: "ORD-001"
-        recipientEmail:
-          type: string
-          format: email
-          example: "driver@email.com"
-        recipientPhone:
-          type: string
-          example: "+94779876543"
-        restaurantName:
-          type: string
-          example: "Burger Hut"
-        deliveryAddress:
-          type: string
-          example: "123 Main St, Colombo"
-        sendEmail:
-          type: boolean
-          example: true
-        sendSMS:
-          type: boolean
-          example: true
-
     RestaurantNotificationRequest:
       type: object
       required:
@@ -496,11 +363,8 @@ components:
           type: string
           enum:
             - ORDER_CONFIRMED
-            - ORDER_DELIVERED
+            - ORDER_FINISHED
             - PAYMENT_SUCCESS
-            - DELIVERY_CONFIRMED
-            - DELIVERY_ON_THE_WAY
-            - DELIVERY_CANCELED
             - NEW_ORDER
             - ORDER_ACCEPTED
             - ORDER_CANCELLED
