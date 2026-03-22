@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   Search, 
@@ -9,7 +9,8 @@ import {
   ShoppingBag, 
   DollarSign, 
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Clock // Added Clock icon for notifications
 } from "lucide-react";
 import { 
   AreaChart, 
@@ -23,30 +24,47 @@ import {
 import { getAllUsers } from "../../services/userService";
 import { getAllOrders } from "../../services/orderService"; 
 import { useAuth } from "../../context/AuthContext";
-import { setToken } from "../../api/axios"; // 1. CRITICAL IMPORT: Used to restore the missing token
+import { setToken } from "../../api/axios";
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { auth, logout } = useAuth(); // 2. Extract auth to get the saved token
+  const { auth, logout } = useAuth(); 
   const currentPath = location.pathname;
 
   const [users, setUsers] = useState([]);
   const [debugError, setDebugError] = useState("");
   
+  // NEW: State for Notifications
+  const [incomingOrders, setIncomingOrders] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalCustomers: 0,
     totalOwners: 0,
     totalOrders: 0,
     pendingOrders: 0,
-    completedOrders: 0
+    completedOrders: 0,
+    totalRevenue: 0 
   });
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  // NEW: Click outside listener for the notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const revenueData = [
     { name: "Mon", current: 4000, previous: 2400 },
@@ -58,6 +76,7 @@ export default function OwnerDashboard() {
     { name: "Sun", current: 3490, previous: 4300 },
   ];
 
+  // UPDATED: Added an interval so the dashboard stats and bell update automatically
   useEffect(() => {
     const fetchData = async () => {
       setDebugError("");
@@ -65,7 +84,6 @@ export default function OwnerDashboard() {
       let extractedOrders = [];
       let fetchErrors = [];
 
-      // 3. THE FIX: Restore the token in Axios memory if it was lost during a page refresh!
       let currentToken = auth?.token || auth?.accessToken;
       if (!currentToken) {
         try {
@@ -75,10 +93,9 @@ export default function OwnerDashboard() {
       }
       
       if (currentToken) {
-        setToken(currentToken); // Injects token into api/axios.js so the 403 error stops happening!
+        setToken(currentToken); 
       }
 
-      // Deep Array Scanner to bypass all Spring Boot wrappers
       const extractArrayAggressive = (obj) => {
         if (!obj) return [];
         if (Array.isArray(obj)) return obj;
@@ -100,7 +117,6 @@ export default function OwnerDashboard() {
         return [];
       };
 
-      // Fetch Users
       try {
         const userRes = await getAllUsers();
         extractedUsers = extractArrayAggressive(userRes);
@@ -110,7 +126,6 @@ export default function OwnerDashboard() {
         fetchErrors.push(`Users API: ${err.message}`);
       }
 
-      // Fetch Orders
       try {
         const orderRes = await getAllOrders();
         extractedOrders = extractArrayAggressive(orderRes);
@@ -123,7 +138,6 @@ export default function OwnerDashboard() {
         setDebugError(fetchErrors.join(" | "));
       }
 
-      // Safely calculate stats
       const customersCount = extractedUsers.filter(u => {
         const r = String(u.role || u.userRole || u.authorities || "").toUpperCase();
         return r.includes("CUSTOMER") || r.includes("USER");
@@ -134,15 +148,21 @@ export default function OwnerDashboard() {
         return r.includes("OWNER") || r.includes("ADMIN");
       }).length;
 
-      const pendingCount = extractedOrders.filter(o => {
-        const status = String(o.status || o.orderStatus || "").toUpperCase();
-        return ["PENDING", "PLACED", "PREPARING", "READY"].includes(status);
-      }).length;
+      const pendingOrdersList = extractedOrders.filter(o => String(o.status || o.orderStatus || "").toUpperCase() === "PENDING");
+      const pendingCount = extractedOrders.filter(o => ["PENDING", "PLACED", "PREPARING", "READY"].includes(String(o.status || o.orderStatus || "").toUpperCase())).length;
+      const completedCount = extractedOrders.filter(o => ["COMPLETED", "DELIVERED"].includes(String(o.status || o.orderStatus || "").toUpperCase())).length;
 
-      const completedCount = extractedOrders.filter(o => {
-        const status = String(o.status || o.orderStatus || "").toUpperCase();
-        return ["COMPLETED", "DELIVERED"].includes(status);
-      }).length;
+      const calculatedRevenue = extractedOrders.reduce((sum, order) => {
+          const status = String(order.status || order.orderStatus || "").toUpperCase();
+          if (["COMPLETED", "DELIVERED"].includes(status)) {
+             const amount = parseFloat(order.totalAmount || order.totalPrice || 0);
+             return sum + amount;
+          }
+          return sum;
+      }, 0);
+
+      // NEW: Set incoming orders specifically for the notification dropdown
+      setIncomingOrders(pendingOrdersList.sort((a, b) => new Date(b.createdAt || b.orderDate || 0) - new Date(a.createdAt || a.orderDate || 0)));
 
       setStats({
         totalUsers: extractedUsers.length,
@@ -150,17 +170,33 @@ export default function OwnerDashboard() {
         totalOwners: ownersCount,
         totalOrders: extractedOrders.length,
         pendingOrders: pendingCount,
-        completedOrders: completedCount
+        completedOrders: completedCount,
+        totalRevenue: calculatedRevenue
       });
     };
 
     fetchData();
-  }, [auth]); // Added auth to dependency array
+    const interval = setInterval(fetchData, 15000); // 15s refresh
+    return () => clearInterval(interval);
+  }, [auth]); 
+
+  const formatTime = (dateString) => {
+    if(!dateString) return "JUST NOW";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "JUST NOW";
+    if (diffMins < 60) return `${diffMins} MIN AGO`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} HR AGO`;
+    return date.toLocaleDateString();
+  };
 
   return (
     <div className="min-h-screen bg-[#fafaf9] font-sans flex flex-col items-center pb-12">
       
-      {/* Universal Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-sm py-4 border-b border-gray-100">
         <div className="max-w-[1440px] mx-auto px-8 flex items-center justify-between">
           <div className="flex items-center gap-16">
@@ -171,44 +207,74 @@ export default function OwnerDashboard() {
             </Link>
             
             <nav className="hidden lg:flex items-center gap-10">
-              <Link 
-                to="/owner/dashboard" 
-                className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${
-                  currentPath === '/owner/dashboard' 
-                    ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' 
-                    : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link 
-                to="/owner/orders" 
-                className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${
-                  currentPath === '/owner/orders' 
-                    ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' 
-                    : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'
-                }`}
-              >
-                Live Orders
-              </Link>
-              <Link 
-                to="/owner/menu" 
-                className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${
-                  currentPath === '/owner/menu' 
-                    ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' 
-                    : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'
-                }`}
-              >
-                Menu Editor
-              </Link>
+              <Link to="/owner/dashboard" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/dashboard' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Dashboard</Link>
+              <Link to="/owner/orders" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/orders' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Live Orders</Link>
+              <Link to="/owner/menu" className={`text-[13px] font-bold tracking-widest uppercase transition-colors duration-300 flex flex-col after:h-0.5 after:mt-1 ${currentPath === '/owner/menu' ? 'text-[#1f2937] after:w-full after:bg-[#d05322]' : 'text-[#6b7280] hover:text-[#1f2937] after:w-0 hover:after:w-full hover:after:bg-[#d05322]/50'}`}>Menu Editor</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-[#6b7280] hover:text-[#d05322] transition-colors relative">
-              <Bell size={20} strokeWidth={2.5} />
-              <div className="absolute top-0 right-0 w-2 h-2 bg-[#d05322] rounded-full border-2 border-white"></div>
-            </button>
+            
+            {/* FULLY FUNCTIONAL BELL DROPDOWN */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowNotifications(prev => !prev);
+                }}
+                className="text-[#6b7280] hover:text-[#d05322] transition-colors relative flex items-center justify-center h-10 w-10 rounded-full hover:bg-orange-50 focus:outline-none"
+              >
+                <Bell size={20} strokeWidth={2.5} />
+                {incomingOrders.length > 0 && (
+                  <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#d05322] rounded-full border-2 border-white animate-pulse"></div>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-4 z-[9999] animate-in fade-in slide-in-from-top-2">
+                  <div className="px-6 pb-3 border-b border-gray-50 flex justify-between items-center">
+                    <h3 className="text-[14px] font-extrabold text-[#1f2937]">Notifications</h3>
+                    <span className="text-[10px] font-black tracking-widest bg-orange-50 text-[#d05322] px-2 py-0.5 rounded-full">
+                      {incomingOrders.length} NEW
+                    </span>
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {incomingOrders.length === 0 ? (
+                      <div className="px-6 py-8 text-center text-[13px] text-gray-500 font-medium">
+                        You're all caught up!
+                      </div>
+                    ) : (
+                      incomingOrders.slice(0, 5).map(order => (
+                        <div 
+                          key={order.id} 
+                          className="px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" 
+                          onClick={() => navigate("/owner/orders")}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-[13px] font-bold text-[#1f2937]">New Order #{order.id?.slice(-4).toUpperCase()}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{formatTime(order.createdAt || order.orderDate)}</span>
+                          </div>
+                          <p className="text-[12px] text-gray-500 line-clamp-1">{order.customerName}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {incomingOrders.length > 5 && (
+                    <div className="px-6 pt-3 border-t border-gray-50 text-center">
+                      <button 
+                        onClick={() => navigate("/owner/orders")} 
+                        className="text-[11px] font-bold text-[#d05322] hover:text-[#b84318] uppercase tracking-widest"
+                      >
+                        View All Incoming
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             
             <Link to="/profile">
               <div 
@@ -221,7 +287,7 @@ export default function OwnerDashboard() {
 
             <button 
               onClick={handleLogout}
-              className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"
+              className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300 focus:outline-none"
               title="Logout"
             >
               <LogOut size={20} strokeWidth={2.5} />
@@ -234,7 +300,6 @@ export default function OwnerDashboard() {
 
       <div className="w-full max-w-[1440px] px-8 py-6">
         
-        {/* Connection Debugger */}
         {debugError && (
           <div className="mb-8 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm">
             <AlertCircle size={24} className="flex-shrink-0" />
@@ -256,10 +321,8 @@ export default function OwnerDashboard() {
           </button>
         </div>
 
-        {/* Top KPIs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           
-          {/* Box 1: Total Users */}
           <div className="bg-white rounded-3xl p-6 border border-[#e5e7eb] shadow-sm flex flex-col justify-between group hover:border-[#d05322]/40 transition-colors">
             <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <Users size={20} strokeWidth={2.5}/>
@@ -273,7 +336,6 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Box 2: Total Orders */}
           <div className="bg-white rounded-3xl p-6 border border-[#e5e7eb] shadow-sm flex flex-col justify-between group hover:border-[#d05322]/40 transition-colors">
             <div className="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-6 group-hover:bg-green-600 group-hover:text-white transition-colors">
               <ShoppingBag size={20} strokeWidth={2.5}/>
@@ -287,32 +349,29 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {/* Box 3: Revenue (Placeholder) */}
           <div className="bg-[#1f2937] rounded-3xl p-6 text-white shadow-sm flex flex-col justify-between">
             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-6">
               <DollarSign size={20} strokeWidth={2.5}/>
             </div>
             <div>
-              <p className="text-[11px] font-black text-white/50 uppercase tracking-widest mb-1">REVENUE EST.</p>
-              <h3 className="text-[32px] font-extrabold text-white">$12,450</h3>
-              <p className="text-[12px] text-white/70 mt-3">Monthly Estimate</p>
+              <p className="text-[11px] font-black text-white/50 uppercase tracking-widest mb-1">TOTAL REVENUE</p>
+              <h3 className="text-[32px] font-extrabold text-white">${stats.totalRevenue.toFixed(2)}</h3>
+              <p className="text-[12px] text-white/70 mt-3">From Completed Orders</p>
             </div>
           </div>
 
-          {/* Box 4: Action Required */}
           <div className="bg-[#d05322] rounded-3xl p-6 shadow-sm flex flex-col justify-between text-white cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => navigate('/owner/orders')}>
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mb-6">
               <TrendingUp size={20} strokeWidth={2.5}/>
             </div>
             <div>
               <p className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">ACTION REQUIRED</p>
-              <h3 className="text-[20px] font-extrabold text-white leading-tight mt-1">Review {stats.pendingOrders} Pending Orders</h3>
+              <h3 className="text-[20px] font-extrabold text-white leading-tight mt-1">Review {incomingOrders.length} Incoming Orders</h3>
               <div className="mt-4 text-[12px] font-bold text-white uppercase tracking-wider underline">VIEW LIVE LIST →</div>
             </div>
           </div>
         </div>
 
-        {/* Analytics & Quick Links */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
           <div className="lg:col-span-2 bg-white rounded-3xl p-6 sm:p-8 border border-[#e5e7eb] shadow-sm">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
@@ -382,7 +441,6 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* User Directory Table */}
         <div className="bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden mb-8">
           <div className="px-8 py-6 border-b border-[#e5e7eb] flex items-center justify-between bg-white">
             <div>
@@ -424,7 +482,6 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        {/* Global Footer */}
         <footer className="mt-auto pt-8 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3 text-[12px]">
              <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maitre D</h3>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   Bell, 
@@ -8,7 +8,7 @@ import {
   ChefHat,
   CheckCircle2,
   PackageCheck,
-  Search // Added Search Icon
+  Search
 } from "lucide-react";
 import { getAllOrders, updateOrderStatus } from "../../services/orderService"; 
 import { useAuth } from "../../context/AuthContext";
@@ -24,14 +24,27 @@ export default function OwnerOrdersDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("all"); 
-  
-  // NEW: State for the search filter
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // THE FIX: Added a strict ref and a more robust state for the dropdown
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  // THE FIX: Global listener to close the dropdown when clicking outside of it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchOrders = async () => {
     try {
@@ -123,7 +136,6 @@ export default function OwnerOrdersDashboard() {
   const readyOrders = orders.filter(o => String(o.status || "").toUpperCase() === "CONFIRMED");
   const completedOrders = orders.filter(o => String(o.status || "").toUpperCase() === "COMPLETED");
 
-  // THE FIX: Active Orders now applies the Search Filter instantly
   const getActiveOrders = () => {
       let baseOrders = orders;
       if(activeTab === "incoming") baseOrders = incomingOrders;
@@ -179,10 +191,72 @@ export default function OwnerOrdersDashboard() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-[#6b7280] hover:text-[#d05322] transition-colors relative"><Bell size={20} strokeWidth={2.5} /><div className="absolute top-0 right-0 w-2 h-2 bg-[#d05322] rounded-full border-2 border-white"></div></button>
+            
+            {/* THE FIX: Ref attached to this container, stopPropagation prevents click from getting lost */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowNotifications(prev => !prev);
+                }}
+                className="text-[#6b7280] hover:text-[#d05322] transition-colors relative flex items-center justify-center h-10 w-10 rounded-full hover:bg-orange-50 focus:outline-none"
+              >
+                <Bell size={20} strokeWidth={2.5} />
+                {incomingOrders.length > 0 && (
+                  <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#d05322] rounded-full border-2 border-white animate-pulse"></div>
+                )}
+              </button>
+
+              {/* The high z-index dropdown */}
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-4 z-[9999] animate-in fade-in slide-in-from-top-2">
+                  <div className="px-6 pb-3 border-b border-gray-50 flex justify-between items-center">
+                    <h3 className="text-[14px] font-extrabold text-[#1f2937]">Notifications</h3>
+                    <span className="text-[10px] font-black tracking-widest bg-orange-50 text-[#d05322] px-2 py-0.5 rounded-full">
+                      {incomingOrders.length} NEW
+                    </span>
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {incomingOrders.length === 0 ? (
+                      <div className="px-6 py-8 text-center text-[13px] text-gray-500 font-medium">
+                        You're all caught up!
+                      </div>
+                    ) : (
+                      incomingOrders.slice(0, 5).map(order => (
+                        <div 
+                          key={order.id} 
+                          className="px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" 
+                          onClick={() => {setActiveTab("incoming"); setShowNotifications(false);}}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-[13px] font-bold text-[#1f2937]">New Order #{order.id?.slice(-4).toUpperCase()}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{formatTime(order.createdAt || order.orderDate)}</span>
+                          </div>
+                          <p className="text-[12px] text-gray-500 line-clamp-1">{order.customerName}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {incomingOrders.length > 5 && (
+                    <div className="px-6 pt-3 border-t border-gray-50 text-center">
+                      <button 
+                        onClick={() => {setActiveTab("incoming"); setShowNotifications(false);}} 
+                        className="text-[11px] font-bold text-[#d05322] hover:text-[#b84318] uppercase tracking-widest"
+                      >
+                        View All Incoming
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
             <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
-            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"><LogOut size={20} strokeWidth={2.5} /></button>
+            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300 focus:outline-none"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
         </div>
       </header>
@@ -208,7 +282,6 @@ export default function OwnerOrdersDashboard() {
           </div>
           
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            {/* NEW: Search Bar Component */}
             <div className="relative group w-full sm:w-64 flex-shrink-0">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322] transition-colors" size={16} strokeWidth={2.5}/>
               <input
@@ -285,7 +358,6 @@ export default function OwnerOrdersDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {activeOrders.map(order => {
               const workflow = getWorkflowDetails(order.status);
-              // SAFELY parsing the order total to avoid NaN errors
               const orderTotal = parseFloat(order.totalAmount || order.totalPrice || order.items?.reduce((sum, i) => sum + (parseFloat(i.unitPrice || i.price || 0) * parseInt(i.quantity || 1, 10)), 0) || 0);
               const formattedDate = order.createdAt || order.orderDate ? new Date(order.createdAt || order.orderDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just Now";
 
@@ -337,14 +409,14 @@ export default function OwnerOrdersDashboard() {
                           {workflow.label === "NEW" && (
                             <button 
                                 onClick={() => handleStatusUpdate(order.id, "CANCELLED")}
-                                className="text-[12px] font-bold text-[#9ca3af] hover:text-[#4b5563] uppercase tracking-wider px-2"
+                                className="text-[12px] font-bold text-[#9ca3af] hover:text-[#4b5563] uppercase tracking-wider px-2 focus:outline-none"
                             >
                                 REJECT
                             </button>
                           )}
                           <button
                             onClick={() => handleStatusUpdate(order.id, workflow.nextStatus)}
-                            className={`w-full py-3.5 rounded-xl text-[13px] font-black tracking-widest uppercase transition-all flex justify-center items-center gap-2 ${
+                            className={`w-full py-3.5 rounded-xl text-[13px] font-black tracking-widest uppercase transition-all flex justify-center items-center gap-2 focus:outline-none ${
                               workflow.nextStatus === "PREPARING" ? "bg-[#d05322] text-white hover:bg-[#b84318] shadow-md" :
                               workflow.nextStatus === "CONFIRMED" ? "bg-[#1f2937] text-white hover:bg-black shadow-md" :
                               "bg-white border border-[#1f2937] text-[#1f2937] hover:bg-[#1f2937] hover:text-white"

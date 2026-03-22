@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2, X } from "lucide-react";
 import { 
@@ -7,12 +7,14 @@ import {
   updateMenuItem, 
   deleteMenuItem 
 } from "../../services/menuService";
+import { getAllOrders } from "../../services/orderService"; // NEW: Fetch orders for notifications
 import { useAuth } from "../../context/AuthContext";
+import { setToken } from "../../api/axios"; // NEW: For setting token before fetching orders
 
 export default function MenuManagement() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { auth, logout } = useAuth();
   const currentPath = location.pathname;
 
   const [menuItems, setMenuItems] = useState([]);
@@ -31,10 +33,14 @@ export default function MenuManagement() {
   const [editingItem, setEditingItem] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
   
-  // --- NEW: Search and Filter State ---
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'available', 'sold_out'
+  const [filterStatus, setFilterStatus] = useState("all"); 
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  // NEW: State for Notifications
+  const [incomingOrders, setIncomingOrders] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -49,6 +55,61 @@ export default function MenuManagement() {
     logout();
     navigate("/login");
   };
+
+  // NEW: Click outside listener for the notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // NEW: Fetch incoming orders periodically for notifications
+  useEffect(() => {
+    const fetchIncomingOrders = async () => {
+      try {
+        let currentToken = auth?.token || auth?.accessToken;
+        if (!currentToken) {
+          try {
+            const storedAuth = JSON.parse(localStorage.getItem("auth"));
+            currentToken = storedAuth?.token || storedAuth?.accessToken;
+          } catch (e) {}
+        }
+        if (currentToken) setToken(currentToken);
+
+        const orderRes = await getAllOrders();
+
+        const extractArrayAggressive = (obj) => {
+          if (!obj) return [];
+          if (Array.isArray(obj)) return obj;
+          let foundArrays = [];
+          const search = (item) => {
+            if (!item || typeof item !== 'object') return;
+            for (let key in item) {
+              if (Array.isArray(item[key])) foundArrays.push(item[key]);
+              else if (item[key] && typeof item[key] === 'object') search(item[key]);
+            }
+          };
+          search(obj);
+          if (foundArrays.length > 0) return foundArrays.sort((a, b) => b.length - a.length)[0];
+          return [];
+        };
+
+        const extractedOrders = extractArrayAggressive(orderRes);
+        const pending = extractedOrders.filter(o => String(o.status || "").toUpperCase() === "PENDING");
+        setIncomingOrders(pending.sort((a, b) => new Date(b.createdAt || b.orderDate || 0) - new Date(a.createdAt || a.orderDate || 0)));
+      } catch (err) {
+        console.error("Silent Order Fetch Failed:", err);
+      }
+    };
+
+    fetchIncomingOrders();
+    const interval = setInterval(fetchIncomingOrders, 15000);
+    return () => clearInterval(interval);
+  }, [auth]);
 
   useEffect(() => {
     fetchMenuItems();
@@ -89,17 +150,11 @@ export default function MenuManagement() {
     }
   };
 
-  // --- THE FIX: Apply Active Category, Search Query, and Filter Status ---
   const displayedItems = menuItems.filter(item => {
-    // 1. Check Category
     const catMatch = (item.category || "Uncategorized") === activeCategory;
-    
-    // 2. Check Search Query (Name or Description)
     const searchMatch = searchQuery.trim() === "" || 
                         (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
                         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-                        
-    // 3. Check Filter Status (Available / Sold Out)
     let filterMatch = true;
     if (filterStatus === "available") filterMatch = item.available === true;
     if (filterStatus === "sold_out") filterMatch = item.available === false;
@@ -236,6 +291,20 @@ export default function MenuManagement() {
     return `http://localhost:8082${url}`;
   };
 
+  const formatTime = (dateString) => {
+    if(!dateString) return "JUST NOW";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return "JUST NOW";
+    if (diffMins < 60) return `${diffMins} MIN AGO`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} HR AGO`;
+    return date.toLocaleDateString();
+  };
+
   return (
     <div className="min-h-screen bg-[#fafaf9] font-sans flex flex-col items-center">
       
@@ -256,10 +325,71 @@ export default function MenuManagement() {
           </div>
 
           <div className="flex items-center gap-6">
-            <button className="text-[#6b7280] hover:text-[#d05322] transition-colors relative"><Bell size={20} strokeWidth={2.5} /><div className="absolute top-0 right-0 w-2 h-2 bg-[#d05322] rounded-full border-2 border-white"></div></button>
+            
+            {/* FULLY FUNCTIONAL BELL DROPDOWN */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowNotifications(prev => !prev);
+                }}
+                className="text-[#6b7280] hover:text-[#d05322] transition-colors relative flex items-center justify-center h-10 w-10 rounded-full hover:bg-orange-50 focus:outline-none"
+              >
+                <Bell size={20} strokeWidth={2.5} />
+                {incomingOrders.length > 0 && (
+                  <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#d05322] rounded-full border-2 border-white animate-pulse"></div>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-4 z-[9999] animate-in fade-in slide-in-from-top-2">
+                  <div className="px-6 pb-3 border-b border-gray-50 flex justify-between items-center">
+                    <h3 className="text-[14px] font-extrabold text-[#1f2937]">Notifications</h3>
+                    <span className="text-[10px] font-black tracking-widest bg-orange-50 text-[#d05322] px-2 py-0.5 rounded-full">
+                      {incomingOrders.length} NEW
+                    </span>
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {incomingOrders.length === 0 ? (
+                      <div className="px-6 py-8 text-center text-[13px] text-gray-500 font-medium">
+                        You're all caught up!
+                      </div>
+                    ) : (
+                      incomingOrders.slice(0, 5).map(order => (
+                        <div 
+                          key={order.id} 
+                          className="px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" 
+                          onClick={() => navigate("/owner/orders")}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-[13px] font-bold text-[#1f2937]">New Order #{order.id?.slice(-4).toUpperCase()}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{formatTime(order.createdAt || order.orderDate)}</span>
+                          </div>
+                          <p className="text-[12px] text-gray-500 line-clamp-1">{order.customerName}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  {incomingOrders.length > 5 && (
+                    <div className="px-6 pt-3 border-t border-gray-50 text-center">
+                      <button 
+                        onClick={() => navigate("/owner/orders")} 
+                        className="text-[11px] font-bold text-[#d05322] hover:text-[#b84318] uppercase tracking-widest"
+                      >
+                        View All Incoming
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
             <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
-            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300"><LogOut size={20} strokeWidth={2.5} /></button>
+            <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300 focus:outline-none"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
         </div>
       </header>
@@ -272,7 +402,6 @@ export default function MenuManagement() {
           <h2 className="text-[32px] font-extrabold text-[#1f2937] tracking-tight">Menu Editor</h2>
           <div className="flex items-center gap-4">
             
-            {/* THE FIX: Active Search Bar */}
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322] transition-colors" size={16} strokeWidth={2.5}/>
               <input 
@@ -284,7 +413,6 @@ export default function MenuManagement() {
               />
             </div>
             
-            {/* THE FIX: Active Filter Dropdown Button */}
             <div className="relative">
               <button 
                 onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -294,7 +422,6 @@ export default function MenuManagement() {
                 FILTER {filterStatus !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-[#d05322] ml-1"></span>}
               </button>
 
-              {/* Dropdown Menu */}
               {showFilterDropdown && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Availability</div>
