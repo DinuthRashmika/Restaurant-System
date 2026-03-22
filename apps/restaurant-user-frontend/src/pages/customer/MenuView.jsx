@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import Topbar from "../../components/Topbar";
 import { getAllMenuItems } from "../../services/menuService";
 import { useCart } from "../../context/CartContext";
+import { Search } from "lucide-react"; // Imported Search icon
 
 export default function MenuView() {
   const [searchParams] = useSearchParams();
@@ -16,15 +17,19 @@ export default function MenuView() {
   
   const [categories, setCategories] = useState(["All"]);
   
+  // NEW: State for the search query
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const { cart, addToCart } = useCart();
 
   useEffect(() => {
     fetchMenuItems();
   }, []);
 
+  // UPDATED: Added searchQuery to dependency array
   useEffect(() => {
     filterItems();
-  }, [menuItems, selectedCategory]);
+  }, [menuItems, selectedCategory, searchQuery]);
 
   const fetchMenuItems = async () => {
     try {
@@ -32,7 +37,7 @@ export default function MenuView() {
       if (response.success) {
         const items = response.data;
         
-        // THE FIX: Immediately drop items that are switched off by the owner!
+        // Immediately drop items that are switched off by the owner!
         const availableItemsOnly = items.filter(item => item.available === true);
         setMenuItems(availableItemsOnly);
         
@@ -60,9 +65,19 @@ export default function MenuView() {
   const filterItems = () => {
     let filtered = [...menuItems];
     
+    // 1. Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter(item => 
         item.category && item.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+    
+    // 2. Filter by search query (name or description)
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item => 
+        (item.name && item.name.toLowerCase().includes(query)) ||
+        (item.description && item.description.toLowerCase().includes(query))
       );
     }
     
@@ -101,11 +116,25 @@ export default function MenuView() {
           </div>
 
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-4 mb-8">
-              <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-                {selectedCategory === "All" ? "Full Collection" : `${selectedCategory} Selection`}
-              </h2>
-              <div className="h-px bg-gray-200 flex-1 mt-2"></div>
+            {/* UPDATED: Header section with Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4 flex-1">
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight whitespace-nowrap">
+                  {selectedCategory === "All" ? "Full Collection" : `${selectedCategory} Selection`}
+                </h2>
+                <div className="h-px bg-gray-200 flex-1 hidden sm:block mt-2"></div>
+              </div>
+              
+              <div className="relative group w-full sm:w-64 flex-shrink-0">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#d05322] transition-colors" size={18} strokeWidth={2.5}/>
+                <input
+                  type="text"
+                  placeholder="Search menu..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-xl pl-11 pr-4 py-2.5 text-[14px] font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] transition-all shadow-sm"
+                />
+              </div>
             </div>
 
             {loading ? (
@@ -158,7 +187,9 @@ export default function MenuView() {
                   ))
                 ) : (
                   <div className="rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
-                    <p className="text-lg font-bold text-gray-400">No items found for this category.</p>
+                    <p className="text-lg font-bold text-gray-400">
+                      {searchQuery ? `No items found matching "${searchQuery}"` : "No items found for this category."}
+                    </p>
                   </div>
                 )}
               </div>

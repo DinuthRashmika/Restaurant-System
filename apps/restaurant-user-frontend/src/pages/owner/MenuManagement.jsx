@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
+import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2, X } from "lucide-react";
 import { 
   getAllMenuItems, 
   createMenuItem, 
@@ -16,13 +16,23 @@ export default function MenuManagement() {
   const currentPath = location.pathname;
 
   const [menuItems, setMenuItems] = useState([]);
-  // --- NEW: Dynamic Categories State ---
   const [categories, setCategories] = useState([]);
+  
+  // NEW: State to remember empty categories the user creates manually
+  const [customCategories, setCustomCategories] = useState(() => {
+    return JSON.parse(localStorage.getItem("customCategories")) || [];
+  });
+  
+  // NEW: Modal controls for adding a category
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -39,55 +49,40 @@ export default function MenuManagement() {
 
   useEffect(() => {
     fetchMenuItems();
-  }, []);
+  }, [customCategories]); // Refetch/rebuild when a custom category is added
 
   const fetchMenuItems = async () => {
     try {
       const response = await getAllMenuItems();
-      if (response.success && response.data.length > 0) {
-        const items = response.data;
-        setMenuItems(items);
-        
-        // --- NEW: Dynamically calculate categories and counts ---
-        const categoryMap = new Map();
-        
-        items.forEach(item => {
-          const catName = item.category || "Uncategorized";
-          if (categoryMap.has(catName)) {
-            categoryMap.set(catName, categoryMap.get(catName) + 1);
-          } else {
-            categoryMap.set(catName, 1);
-          }
-        });
+      const items = (response.success && response.data) ? response.data : [];
+      setMenuItems(items);
+      
+      const categoryMap = new Map();
+      
+      // 1. Get categories from items that exist in the DB
+      items.forEach(item => {
+        const catName = item.category || "Uncategorized";
+        categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
+      });
 
-        // Convert Map to Array for rendering
-        const dynamicCategories = Array.from(categoryMap, ([name, count]) => ({ name, count }));
-        
-        // Sort alphabetically
-        dynamicCategories.sort((a, b) => a.name.localeCompare(b.name));
-        
-        setCategories(dynamicCategories);
-
-        // Set the active category to the first one in the list if none is selected
-        if (dynamicCategories.length > 0) {
-          setActiveCategory(prev => {
-             // If a category was already selected and it exists in the new list, keep it.
-             if (prev && dynamicCategories.some(c => c.name === prev)) return prev;
-             // Otherwise, default to the first category
-             return dynamicCategories[0].name;
-          });
-          
-          setFormData(prev => ({ ...prev, category: prev.category || dynamicCategories[0].name }));
+      // 2. Add custom empty categories the user manually created
+      customCategories.forEach(catName => {
+        if (!categoryMap.has(catName)) {
+          categoryMap.set(catName, 0); // Count is 0
         }
+      });
 
-      } else {
-        setMenuItems([]); 
-        setCategories([]);
+      const dynamicCategories = Array.from(categoryMap, ([name, count]) => ({ name, count }));
+      dynamicCategories.sort((a, b) => a.name.localeCompare(b.name));
+      
+      setCategories(dynamicCategories);
+
+      if (dynamicCategories.length > 0 && !activeCategory) {
+         setActiveCategory(dynamicCategories[0].name);
       }
+
     } catch (err) {
       console.error("Fetch error", err);
-      setMenuItems([]);
-      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -111,10 +106,15 @@ export default function MenuManagement() {
     e.preventDefault();
     setError("");
 
+    if (!formData.category) {
+      setError("Please select a category");
+      return;
+    }
+
     const formDataObj = new FormData();
     formDataObj.append("name", formData.name);
     formDataObj.append("description", formData.description);
-    formDataObj.append("category", formData.category || "Uncategorized"); // Ensure a category is set
+    formDataObj.append("category", formData.category); 
     formDataObj.append("price", formData.price);
     formDataObj.append("available", formData.available);
     if (imageFile) {
@@ -178,6 +178,26 @@ export default function MenuManagement() {
     } catch (err) {
       setError("Failed to delete item");
     }
+  };
+
+  // --- NEW: Category Form Handlers ---
+  const handleAddCategorySubmit = (e) => {
+    e.preventDefault();
+    const cleanName = newCategoryName.trim();
+    if (!cleanName) return;
+
+    setCustomCategories(prev => {
+      if (!prev.includes(cleanName)) {
+        const updated = [...prev, cleanName];
+        localStorage.setItem("customCategories", JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+
+    setActiveCategory(cleanName);
+    setNewCategoryName("");
+    setShowCategoryModal(false);
   };
 
   const resetForm = () => {
@@ -248,7 +268,10 @@ export default function MenuManagement() {
               FILTER
             </button>
             <button 
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setFormData(prev => ({...prev, category: activeCategory || (categories.length > 0 ? categories[0].name : "")}));
+                setShowForm(true);
+              }}
               className="flex items-center gap-2 bg-[#d05322] hover:bg-[#b84318] text-white rounded-lg px-5 py-2.5 text-[12px] font-bold tracking-wider uppercase transition-colors shadow-sm ml-2"
             >
               <Plus size={16} strokeWidth={3} />
@@ -259,13 +282,12 @@ export default function MenuManagement() {
 
         <div className="flex flex-col lg:flex-row gap-8 flex-1">
           
-          {/* Dynamic Sidebar Categories */}
           <div className="w-full lg:w-64 flex-shrink-0">
             <h3 className="text-[11px] font-black text-[#9ca3af] tracking-widest uppercase mb-4 px-2">CATEGORIES</h3>
             <div className="flex flex-col gap-1 relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-gray-200 before:-z-10 ml-2">
               
               {categories.length === 0 && !loading && (
-                 <div className="px-4 py-3 text-[13px] text-gray-500 font-medium">No categories yet. Add an item!</div>
+                 <div className="px-4 py-3 text-[13px] text-gray-500 font-medium">No categories yet.</div>
               )}
 
               {categories.map((cat) => (
@@ -278,8 +300,8 @@ export default function MenuManagement() {
                       : "border-transparent text-[#6b7280] font-semibold hover:bg-white/50 hover:text-[#1f2937]"
                   }`}
                 >
-                  <span className="text-[14px]">{cat.name}</span>
-                  <span className={`text-[12px] px-2 py-0.5 rounded-full ${
+                  <span className="text-[14px] truncate pr-2">{cat.name}</span>
+                  <span className={`text-[12px] px-2 py-0.5 rounded-full flex-shrink-0 ${
                     activeCategory === cat.name ? "bg-gray-100 text-[#1f2937]" : "bg-transparent text-[#9ca3af] group-hover:bg-gray-100"
                   }`}>
                     {cat.count}
@@ -288,15 +310,16 @@ export default function MenuManagement() {
               ))}
             </div>
             
-            {/* Kept button, but it serves as a visual placeholder unless you build category logic later */}
-            <button className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors">
+            {/* NEW: ADD CATEGORY BUTTON */}
+            <button 
+              onClick={() => setShowCategoryModal(true)}
+              className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors"
+            >
               <Plus size={14} strokeWidth={3} /> ADD CATEGORY
             </button>
           </div>
 
-          {/* Main List Area */}
           <div className="flex-1 min-w-0 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden mb-8">
-            
             <div className="px-8 py-6 border-b border-[#e5e7eb] flex items-center justify-between bg-white">
               <div>
                 <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">{activeCategory || "Menu Items"}</h3>
@@ -316,12 +339,13 @@ export default function MenuManagement() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr>
-                      <td colSpan="4" className="py-8 text-center text-gray-500 text-[14px] font-semibold">Loading items...</td>
-                    </tr>
+                    <tr><td colSpan="4" className="py-8 text-center text-gray-500 text-[14px] font-semibold">Loading items...</td></tr>
                   ) : currentCategoryItems.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-gray-500 text-[14px] font-semibold">No items found in this category.</td>
+                      <td colSpan="4" className="py-12 text-center text-gray-500">
+                        <div className="text-[15px] font-bold text-[#1f2937] mb-1">Category is empty</div>
+                        <div className="text-[13px]">Click "Add New Item" to create a dish here.</div>
+                      </td>
                     </tr>
                   ) : (
                     currentCategoryItems.map((item) => (
@@ -329,11 +353,7 @@ export default function MenuManagement() {
                         <td className="py-4 px-8">
                           <div className="flex items-center gap-5">
                             <div className="h-14 w-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
-                              <img 
-                                src={getImageUrl(item.imageUrl)} 
-                                alt={item.name} 
-                                className="w-full h-full object-cover"
-                              />
+                              <img src={getImageUrl(item.imageUrl)} alt={item.name} className="w-full h-full object-cover"/>
                             </div>
                             <div>
                               <div className="font-bold text-[#1f2937] text-[15px]">{item.name}</div>
@@ -341,41 +361,22 @@ export default function MenuManagement() {
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-8">
-                          <span className="font-extrabold text-[#1f2937] text-[15px]">${parseFloat(item.price).toFixed(2)}</span>
-                        </td>
+                        <td className="py-4 px-8"><span className="font-extrabold text-[#1f2937] text-[15px]">${parseFloat(item.price).toFixed(2)}</span></td>
                         <td className="py-4 px-8">
                           <div className="flex items-center gap-3">
-                            <span className={`text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-1 rounded-sm ${
-                              item.available ? "bg-green-50 text-[#10b981]" : "bg-gray-100 text-[#6b7280]"
-                            }`}>
+                            <span className={`text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-1 rounded-sm ${item.available ? "bg-green-50 text-[#10b981]" : "bg-gray-100 text-[#6b7280]"}`}>
                               {item.available ? "AVAILABLE" : "SOLD OUT"}
                             </span>
-                            <div 
-                              onClick={() => handleToggleAvailability(item)}
-                              className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}
-                            >
+                            <div onClick={() => handleToggleAvailability(item)} className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}>
                               <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${item.available ? "translate-x-4" : "translate-x-0"}`}></div>
                             </div>
                           </div>
                         </td>
                         <td className="py-4 px-8">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => handleEdit(item)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#d05322] hover:bg-[#d05322]/10 transition-colors"
-                            >
-                              <Edit2 size={16} strokeWidth={2.5}/>
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(item.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-red-500 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size={16} strokeWidth={2.5}/>
-                            </button>
-                            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#1f2937] transition-colors">
-                              <MoreVertical size={16} strokeWidth={2.5}/>
-                            </button>
+                            <button onClick={() => handleEdit(item)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#d05322] hover:bg-[#d05322]/10 transition-colors"><Edit2 size={16} strokeWidth={2.5}/></button>
+                            <button onClick={() => handleDelete(item.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
+                            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#1f2937] transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
                           </div>
                         </td>
                       </tr>
@@ -387,9 +388,35 @@ export default function MenuManagement() {
           </div>
         </div>
 
-        {/* Form Modal */}
+        {/* --- NEW: CATEGORY ADD MODAL --- */}
+        {showCategoryModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6 border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">Add Category</h2>
+                 <button onClick={() => setShowCategoryModal(false)} className="text-gray-400 hover:text-[#d05322] transition-colors"><X size={20} strokeWidth={2.5}/></button>
+              </div>
+              <form onSubmit={handleAddCategorySubmit}>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="e.g. Artisanal Starters"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all mb-6"
+                  autoFocus
+                  required
+                />
+                <button type="submit" className="w-full rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md">
+                  Save Category
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Main Item Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl p-8 border border-gray-100">
               <h2 className="text-[24px] font-extrabold text-[#1f2937] tracking-tight mb-6">
                 {editingItem ? "Edit Item" : "Add New Item"}
@@ -399,114 +426,57 @@ export default function MenuManagement() {
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
-                    Item Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400"
-                    placeholder="e.g. Truffle Fries"
-                    required
-                  />
+                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Name</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400" placeholder="e.g. Truffle Fries" required />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400"
-                    placeholder="Brief description of the item"
-                    required
-                  />
+                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Description</label>
+                  <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400" placeholder="Brief description of the item" required />
                 </div>
 
                 <div className="grid grid-cols-2 gap-5">
                   <div>
-                    {/* Allow users to type custom categories OR select existing ones */}
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
-                      Category
-                    </label>
-                    <input
-                      type="text"
+                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Category</label>
+                    {/* THE FIX: Switched back to a strict Select Dropdown! */}
+                    <select
                       name="category"
-                      list="category-options"
                       value={formData.category}
                       onChange={handleInputChange}
                       className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all bg-white"
-                      placeholder="e.g. Starters"
                       required
-                    />
-                    <datalist id="category-options">
+                    >
+                      <option value="" disabled>Select a category</option>
                       {categories.map(cat => (
-                        <option key={cat.name} value={cat.name} />
+                        <option key={cat.name} value={cat.name}>{cat.name}</option>
                       ))}
-                    </datalist>
+                    </select>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
-                      Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all text-[#1f2937]"
-                      placeholder="0.00"
-                      required
-                    />
+                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Price ($)</label>
+                    <input type="number" name="price" value={formData.price} onChange={handleInputChange} step="0.01" min="0" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all text-[#1f2937]" placeholder="0.00" required />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">
-                    Item Image
-                  </label>
-                  <input
-                    type="file"
-                    onChange={handleImageChange}
-                    accept="image/*"
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-[13px] font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-gray-100 file:text-[#1f2937] hover:file:bg-gray-200 cursor-pointer text-gray-500"
-                  />
+                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Image</label>
+                  <input type="file" onChange={handleImageChange} accept="image/*" className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-[13px] font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-gray-100 file:text-[#1f2937] hover:file:bg-gray-200 cursor-pointer text-gray-500" />
                 </div>
 
                 <label className="flex items-center gap-3 cursor-pointer mt-2 w-max p-2 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${formData.available ? "bg-[#d05322]" : "bg-gray-300"}`}>
                     <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.available ? "translate-x-4" : "translate-x-0"}`}/>
                   </div>
-                  <input
-                    type="checkbox"
-                    name="available"
-                    checked={formData.available}
-                    onChange={handleInputChange}
-                    className="hidden"
-                  />
+                  <input type="checkbox" name="available" checked={formData.available} onChange={handleInputChange} className="hidden" />
                   <span className="text-[13px] font-bold text-[#1f2937]">Item is available for ordering</span>
                 </label>
 
                 <div className="mt-8 flex gap-4 pt-4 border-t border-gray-100">
-                  <button
-                    type="submit"
-                    className="flex-1 rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3.5 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md"
-                  >
+                  <button type="submit" className="flex-1 rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3.5 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md">
                     {editingItem ? "SAVE CHANGES" : "CREATE ITEM"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="flex-1 rounded-xl border border-gray-300 hover:border-gray-400 bg-white py-3.5 text-[13px] font-extrabold text-[#1f2937] tracking-widest uppercase transition-colors shadow-sm"
-                  >
+                  <button type="button" onClick={resetForm} className="flex-1 rounded-xl border border-gray-300 hover:border-gray-400 bg-white py-3.5 text-[13px] font-extrabold text-[#1f2937] tracking-widest uppercase transition-colors shadow-sm">
                     CANCEL
                   </button>
                 </div>
