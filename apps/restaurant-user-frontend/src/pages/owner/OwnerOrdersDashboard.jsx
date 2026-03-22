@@ -8,7 +8,8 @@ import {
   ChefHat,
   CheckCircle2,
   PackageCheck,
-  Search
+  Search,
+  User // Added User for fallback icon
 } from "lucide-react";
 import { getAllOrders, updateOrderStatus } from "../../services/orderService"; 
 import { useAuth } from "../../context/AuthContext";
@@ -26,16 +27,24 @@ export default function OwnerOrdersDashboard() {
   const [activeTab, setActiveTab] = useState("all"); 
   const [searchQuery, setSearchQuery] = useState("");
   
-  // THE FIX: Added a strict ref and a more robust state for the dropdown
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+
+  // --- START REAL PROFILE PIC LOGIC ---
+  const storedAuth = JSON.parse(localStorage.getItem("auth")) || {};
+  const currentUser = auth?.user || auth || storedAuth?.user || storedAuth || {};
+  const userId = currentUser.id || currentUser._id || currentUser.userId || "Unassigned";
+  
+  // Look for the cached "Boy pic" first, then fallback to auth state image
+  const cachedImage = localStorage.getItem(`frontend_image_cache_${userId}`);
+  const profileImage = cachedImage || currentUser.profileImage || currentUser.avatarUrl || "";
+  // --- END REAL PROFILE PIC LOGIC ---
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // THE FIX: Global listener to close the dropdown when clicking outside of it
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -54,8 +63,8 @@ export default function OwnerOrdersDashboard() {
       let currentToken = auth?.token || auth?.accessToken;
       if (!currentToken) {
         try {
-          const storedAuth = JSON.parse(localStorage.getItem("auth"));
-          currentToken = storedAuth?.token || storedAuth?.accessToken;
+          const storedAuthData = JSON.parse(localStorage.getItem("auth"));
+          currentToken = storedAuthData?.token || storedAuthData?.accessToken;
         } catch (e) {}
       }
       if (currentToken) setToken(currentToken);
@@ -104,19 +113,13 @@ export default function OwnerOrdersDashboard() {
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
       setError(""); 
-      
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-      
       await updateOrderStatus(orderId, newStatus);
-      
       fetchOrders();
-
     } catch (err) {
       console.error("Status Update Failed:", err);
-      
       setError(`Backend Error 500: The server crashed when changing status to ${newStatus}. Please check your Java terminal logs.`);
       setTimeout(() => setError(""), 8000);
-      
       fetchOrders(); 
     }
   };
@@ -151,7 +154,6 @@ export default function OwnerOrdersDashboard() {
               (o.deliveryAddress && String(o.deliveryAddress).toLowerCase().includes(q))
           );
       }
-      
       return baseOrders;
   };
 
@@ -163,7 +165,6 @@ export default function OwnerOrdersDashboard() {
       const now = new Date();
       const diffMs = now - date;
       const diffMins = Math.floor(diffMs / 60000);
-
       if (diffMins < 1) return "JUST NOW";
       if (diffMins < 60) return `${diffMins} MIN AGO`;
       const diffHours = Math.floor(diffMins / 60);
@@ -191,8 +192,6 @@ export default function OwnerOrdersDashboard() {
           </div>
 
           <div className="flex items-center gap-6">
-            
-            {/* THE FIX: Ref attached to this container, stopPropagation prevents click from getting lost */}
             <div className="relative" ref={notificationRef}>
               <button 
                 onClick={(e) => {
@@ -208,7 +207,6 @@ export default function OwnerOrdersDashboard() {
                 )}
               </button>
 
-              {/* The high z-index dropdown */}
               {showNotifications && (
                 <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-4 z-[9999] animate-in fade-in slide-in-from-top-2">
                   <div className="px-6 pb-3 border-b border-gray-50 flex justify-between items-center">
@@ -234,27 +232,30 @@ export default function OwnerOrdersDashboard() {
                             <span className="text-[13px] font-bold text-[#1f2937]">New Order #{order.id?.slice(-4).toUpperCase()}</span>
                             <span className="text-[10px] font-bold text-gray-400">{formatTime(order.createdAt || order.orderDate)}</span>
                           </div>
-                          <p className="text-[12px] text-gray-500 line-clamp-1">{order.customerName}</p>
+                          <p className="text-[12px] text-[#6b7280] line-clamp-1">{order.customerName}</p>
                         </div>
                       ))
                     )}
                   </div>
-                  
-                  {incomingOrders.length > 5 && (
-                    <div className="px-6 pt-3 border-t border-gray-50 text-center">
-                      <button 
-                        onClick={() => {setActiveTab("incoming"); setShowNotifications(false);}} 
-                        className="text-[11px] font-bold text-[#d05322] hover:text-[#b84318] uppercase tracking-widest"
-                      >
-                        View All Incoming
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
 
-            <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
+            {/* UPDATED: Profile picture now uses real image or fallback User icon */}
+            <Link to="/profile" className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#d05322] to-[#b84318] rounded-full opacity-0 group-hover:opacity-100 blur-sm transition-opacity duration-300"></div>
+              <div className={`relative h-10 w-10 rounded-full bg-gray-100 border-2 border-transparent group-hover:border-white transition-all shadow-sm overflow-hidden flex items-center justify-center`}>
+                {profileImage ? (
+                  <div 
+                    className="w-full h-full bg-cover bg-center" 
+                    style={{ backgroundImage: `url('${profileImage}')` }}
+                  />
+                ) : (
+                  <User size={20} className="text-gray-400" />
+                )}
+              </div>
+            </Link>
+
             <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
             <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300 focus:outline-none"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
@@ -264,7 +265,6 @@ export default function OwnerOrdersDashboard() {
       <div className="h-[100px] w-full"></div>
 
       <div className="w-full max-w-[1440px] px-8 py-6">
-        
         {error && (
           <div className="mb-8 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-sm animate-in fade-in slide-in-from-top-4">
             <AlertCircle size={24} className="flex-shrink-0" />
@@ -350,7 +350,7 @@ export default function OwnerOrdersDashboard() {
           <div className="bg-white border-2 border-dashed border-[#e5e7eb] rounded-[2rem] p-16 text-center">
             <PackageCheck size={48} className="mx-auto text-gray-300 mb-4" strokeWidth={1.5} />
             <h3 className="text-xl font-extrabold text-gray-900 mb-2">No orders to display</h3>
-            <p className="text-gray-500 text-sm">
+            <p className="text-[#6b7280] text-sm">
               {searchQuery ? `No orders found matching "${searchQuery}"` : `There are no orders in the "${activeTab.toUpperCase()}" category.`}
             </p>
           </div>
@@ -363,9 +363,7 @@ export default function OwnerOrdersDashboard() {
 
               return (
                 <div key={order.id} className="bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col hover:shadow-md transition-shadow group relative overflow-hidden">
-                  
                   <div className={`absolute top-0 left-0 right-0 h-1.5 ${workflow.color.split(' ')[0]}`}></div>
-
                   <div className="p-6 flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-6">
                       <div>

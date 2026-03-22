@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2, X } from "lucide-react";
+import { Search, SlidersHorizontal, Bell, LogOut, Plus, MoreVertical, Edit2, Trash2, X, User, CheckCircle2, Loader2 } from "lucide-react";
 import { 
   getAllMenuItems, 
   createMenuItem, 
   updateMenuItem, 
   deleteMenuItem 
 } from "../../services/menuService";
-import { getAllOrders } from "../../services/orderService"; // NEW: Fetch orders for notifications
+import { getAllOrders } from "../../services/orderService"; 
 import { useAuth } from "../../context/AuthContext";
-import { setToken } from "../../api/axios"; // NEW: For setting token before fetching orders
+import { setToken } from "../../api/axios";
 
 export default function MenuManagement() {
   const navigate = useNavigate();
@@ -37,10 +37,22 @@ export default function MenuManagement() {
   const [filterStatus, setFilterStatus] = useState("all"); 
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-  // NEW: State for Notifications
+  // Notifications State
   const [incomingOrders, setIncomingOrders] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+
+  // --- START REAL PROFILE PIC LOGIC ---
+  const storedAuth = JSON.parse(localStorage.getItem("auth")) || {};
+  const currentUser = auth?.user || auth || storedAuth?.user || storedAuth || {};
+  
+  // Extract User ID to find the specific local cache
+  const userId = currentUser.id || currentUser._id || currentUser.userId || "Unassigned";
+  
+  // Hunt for the cached image (the boy pic) or the auth image
+  const cachedImage = localStorage.getItem(`frontend_image_cache_${userId}`);
+  const profileImage = cachedImage || currentUser.profileImage || currentUser.avatarUrl || "";
+  // --- END REAL PROFILE PIC LOGIC ---
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,7 +68,6 @@ export default function MenuManagement() {
     navigate("/login");
   };
 
-  // NEW: Click outside listener for the notification dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -67,15 +78,14 @@ export default function MenuManagement() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // NEW: Fetch incoming orders periodically for notifications
   useEffect(() => {
     const fetchIncomingOrders = async () => {
       try {
         let currentToken = auth?.token || auth?.accessToken;
         if (!currentToken) {
           try {
-            const storedAuth = JSON.parse(localStorage.getItem("auth"));
-            currentToken = storedAuth?.token || storedAuth?.accessToken;
+            const storedAuthData = JSON.parse(localStorage.getItem("auth"));
+            currentToken = storedAuthData?.token || storedAuthData?.accessToken;
           } catch (e) {}
         }
         if (currentToken) setToken(currentToken);
@@ -140,7 +150,7 @@ export default function MenuManagement() {
       setCategories(dynamicCategories);
 
       if (dynamicCategories.length > 0 && !activeCategory) {
-         setActiveCategory(dynamicCategories[0].name);
+          setActiveCategory(dynamicCategories[0].name);
       }
 
     } catch (err) {
@@ -326,7 +336,6 @@ export default function MenuManagement() {
 
           <div className="flex items-center gap-6">
             
-            {/* FULLY FUNCTIONAL BELL DROPDOWN */}
             <div className="relative" ref={notificationRef}>
               <button 
                 onClick={(e) => {
@@ -372,22 +381,22 @@ export default function MenuManagement() {
                       ))
                     )}
                   </div>
-                  
-                  {incomingOrders.length > 5 && (
-                    <div className="px-6 pt-3 border-t border-gray-50 text-center">
-                      <button 
-                        onClick={() => navigate("/owner/orders")} 
-                        className="text-[11px] font-bold text-[#d05322] hover:text-[#b84318] uppercase tracking-widest"
-                      >
-                        View All Incoming
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
 
-            <Link to="/profile"><div className="h-10 w-10 rounded-full bg-cover bg-center border-2 border-transparent hover:border-[#d05322] transition-colors shadow-sm" style={{backgroundImage: "url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80')"}}></div></Link>
+            {/* SYNCED PROFILE IMAGE LOGIC */}
+            <Link to="/profile" className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#d05322] to-[#b84318] rounded-full opacity-0 group-hover:opacity-100 blur-sm transition-opacity duration-300"></div>
+              <div className="relative h-10 w-10 rounded-full bg-gray-100 border-2 border-transparent group-hover:border-white transition-all shadow-sm overflow-hidden flex items-center justify-center">
+                {profileImage ? (
+                  <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url('${profileImage}')`}} />
+                ) : (
+                  <User size={20} className="text-gray-400" />
+                )}
+              </div>
+            </Link>
+
             <div className="h-6 w-px bg-gray-200 hidden sm:block mx-1"></div>
             <button onClick={handleLogout} className="flex items-center justify-center h-10 w-10 rounded-full text-gray-500 hover:text-[#d05322] hover:bg-orange-50 transition-all duration-300 focus:outline-none"><LogOut size={20} strokeWidth={2.5} /></button>
           </div>
@@ -425,24 +434,9 @@ export default function MenuManagement() {
               {showFilterDropdown && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Availability</div>
-                  <button 
-                    onClick={() => {setFilterStatus('all'); setShowFilterDropdown(false);}} 
-                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'all' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    All Items
-                  </button>
-                  <button 
-                    onClick={() => {setFilterStatus('available'); setShowFilterDropdown(false);}} 
-                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'available' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    Available Only
-                  </button>
-                  <button 
-                    onClick={() => {setFilterStatus('sold_out'); setShowFilterDropdown(false);}} 
-                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'sold_out' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    Sold Out Only
-                  </button>
+                  <button onClick={() => {setFilterStatus('all'); setShowFilterDropdown(false);}} className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'all' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}>All Items</button>
+                  <button onClick={() => {setFilterStatus('available'); setShowFilterDropdown(false);}} className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'available' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}>Available Only</button>
+                  <button onClick={() => {setFilterStatus('sold_out'); setShowFilterDropdown(false);}} className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'sold_out' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}>Sold Out Only</button>
                 </div>
               )}
             </div>
@@ -461,52 +455,29 @@ export default function MenuManagement() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8 flex-1">
-          
           <div className="w-full lg:w-64 flex-shrink-0">
             <h3 className="text-[11px] font-black text-[#9ca3af] tracking-widest uppercase mb-4 px-2">CATEGORIES</h3>
             <div className="flex flex-col gap-1 relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-gray-200 before:-z-10 ml-2">
-              
-              {categories.length === 0 && !loading && (
-                 <div className="px-4 py-3 text-[13px] text-gray-500 font-medium">No categories yet.</div>
-              )}
-
+              {categories.length === 0 && !loading && <div className="px-4 py-3 text-[13px] text-gray-500 font-medium">No categories yet.</div>}
               {categories.map((cat) => (
                 <button
                   key={cat.name}
                   onClick={() => {setActiveCategory(cat.name); setSearchQuery(""); setFilterStatus("all");}}
-                  className={`flex items-center justify-between px-4 py-3 text-left w-full transition-all group border-l-2 ${
-                    activeCategory === cat.name 
-                      ? "border-[#d05322] bg-white shadow-sm font-bold text-[#1f2937]" 
-                      : "border-transparent text-[#6b7280] font-semibold hover:bg-white/50 hover:text-[#1f2937]"
-                  }`}
+                  className={`flex items-center justify-between px-4 py-3 text-left w-full transition-all group border-l-2 ${activeCategory === cat.name ? "border-[#d05322] bg-white shadow-sm font-bold text-[#1f2937]" : "border-transparent text-[#6b7280] font-semibold hover:bg-white/50 hover:text-[#1f2937]"}`}
                 >
                   <span className="text-[14px] truncate pr-2">{cat.name}</span>
-                  <span className={`text-[12px] px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    activeCategory === cat.name ? "bg-gray-100 text-[#1f2937]" : "bg-transparent text-[#9ca3af] group-hover:bg-gray-100"
-                  }`}>
-                    {cat.count}
-                  </span>
+                  <span className={`text-[12px] px-2 py-0.5 rounded-full flex-shrink-0 ${activeCategory === cat.name ? "bg-gray-100 text-[#1f2937]" : "bg-transparent text-[#9ca3af] group-hover:bg-gray-100"}`}>{cat.count}</span>
                 </button>
               ))}
             </div>
-            
-            <button 
-              onClick={() => setShowCategoryModal(true)}
-              className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors"
-            >
-              <Plus size={14} strokeWidth={3} /> ADD CATEGORY
-            </button>
+            <button onClick={() => setShowCategoryModal(true)} className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors"><Plus size={14} strokeWidth={3} /> ADD CATEGORY</button>
           </div>
 
           <div className="flex-1 min-w-0 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden mb-8">
             <div className="px-8 py-6 border-b border-[#e5e7eb] flex items-center justify-between bg-white">
               <div>
-                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">
-                  {activeCategory || "Menu Items"} 
-                  {searchQuery && <span className="text-[14px] font-semibold text-[#9ca3af] ml-2">Search: "{searchQuery}"</span>}
-                  {filterStatus !== 'all' && <span className="text-[14px] font-semibold text-[#d05322] ml-2">({filterStatus === 'available' ? 'Available Only' : 'Sold Out Only'})</span>}
-                </h3>
-                <p className="text-[13px] text-[#9ca3af] font-medium mt-1">Drag to reorder items</p>
+                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">{activeCategory || "Menu Items"}</h3>
+                <p className="text-[13px] text-[#9ca3af] font-medium mt-1">Manage items within this category</p>
               </div>
             </div>
 
@@ -524,12 +495,7 @@ export default function MenuManagement() {
                   {loading ? (
                     <tr><td colSpan="4" className="py-8 text-center text-gray-500 text-[14px] font-semibold">Loading items...</td></tr>
                   ) : displayedItems.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="py-12 text-center text-gray-500">
-                        <div className="text-[15px] font-bold text-[#1f2937] mb-1">No items match your criteria.</div>
-                        <div className="text-[13px]">Try adjusting your search or filter settings.</div>
-                      </td>
-                    </tr>
+                    <tr><td colSpan="4" className="py-12 text-center text-gray-500"><div className="text-[15px] font-bold text-[#1f2937]">No items found.</div></td></tr>
                   ) : (
                     displayedItems.map((item) => (
                       <tr key={item.id} className="border-b last:border-b-0 border-[#f3f4f6] hover:bg-[#fafaf9] transition-colors group">
@@ -547,19 +513,14 @@ export default function MenuManagement() {
                         <td className="py-4 px-8"><span className="font-extrabold text-[#1f2937] text-[15px]">${parseFloat(item.price).toFixed(2)}</span></td>
                         <td className="py-4 px-8">
                           <div className="flex items-center gap-3">
-                            <span className={`text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-1 rounded-sm ${item.available ? "bg-green-50 text-[#10b981]" : "bg-gray-100 text-[#6b7280]"}`}>
-                              {item.available ? "AVAILABLE" : "SOLD OUT"}
-                            </span>
-                            <div onClick={() => handleToggleAvailability(item)} className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}>
-                              <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${item.available ? "translate-x-4" : "translate-x-0"}`}></div>
-                            </div>
+                            <span className={`text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-1 rounded-sm ${item.available ? "bg-green-50 text-[#10b981]" : "bg-gray-100 text-[#6b7280]"}`}>{item.available ? "AVAILABLE" : "SOLD OUT"}</span>
+                            <div onClick={() => handleToggleAvailability(item)} className={`w-8 h-4 rounded-full flex items-center p-0.5 cursor-pointer transition-colors ${item.available ? "bg-[#10b981]" : "bg-gray-200"}`}><div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${item.available ? "translate-x-4" : "translate-x-0"}`}></div></div>
                           </div>
                         </td>
                         <td className="py-4 px-8">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleEdit(item)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#d05322] hover:bg-[#d05322]/10 transition-colors"><Edit2 size={16} strokeWidth={2.5}/></button>
-                            <button onClick={() => handleDelete(item.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
-                            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#1f2937] transition-colors"><MoreVertical size={16} strokeWidth={2.5}/></button>
+                            <button onClick={() => handleEdit(item)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-[#d05322] hover:bg-[#d05322]/10"><Edit2 size={16} strokeWidth={2.5}/></button>
+                            <button onClick={() => handleDelete(item.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#9ca3af] hover:text-red-500 hover:bg-red-50"><Trash2 size={16} strokeWidth={2.5}/></button>
                           </div>
                         </td>
                       </tr>
@@ -571,115 +532,44 @@ export default function MenuManagement() {
           </div>
         </div>
 
-        {/* Category Add Modal */}
         {showCategoryModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6 border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                  <h2 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">Add Category</h2>
-                 <button onClick={() => setShowCategoryModal(false)} className="text-gray-400 hover:text-[#d05322] transition-colors"><X size={20} strokeWidth={2.5}/></button>
+                 <button onClick={() => setShowCategoryModal(false)} className="text-gray-400 hover:text-[#d05322]"><X size={20} strokeWidth={2.5}/></button>
               </div>
               <form onSubmit={handleAddCategorySubmit}>
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="e.g. Artisanal Starters"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all mb-6"
-                  autoFocus
-                  required
-                />
-                <button type="submit" className="w-full rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md">
-                  Save Category
-                </button>
+                <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="e.g. Artisanal Starters" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold outline-none transition-all mb-6" autoFocus required />
+                <button type="submit" className="w-full rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md">Save Category</button>
               </form>
             </div>
           </div>
         )}
 
-        {/* Main Item Form Modal */}
         {showForm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl p-8 border border-gray-100">
-              <h2 className="text-[24px] font-extrabold text-[#1f2937] tracking-tight mb-6">
-                {editingItem ? "Edit Item" : "Add New Item"}
-              </h2>
-              
+            <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl p-8 border border-gray-100 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-[24px] font-extrabold text-[#1f2937] tracking-tight mb-6">{editingItem ? "Edit Item" : "Add New Item"}</h2>
               {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm font-semibold">{error}</div>}
-
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Name</label>
-                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400" placeholder="e.g. Truffle Fries" required />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Description</label>
-                  <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all placeholder:text-gray-400" placeholder="Brief description of the item" required />
-                </div>
-
+                <div><label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Name</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold" required /></div>
+                <div><label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold" required /></div>
                 <div className="grid grid-cols-2 gap-5">
-                  <div>
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Category</label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all bg-white"
-                      required
-                    >
-                      <option value="" disabled>Select a category</option>
-                      {categories.map(cat => (
-                        <option key={cat.name} value={cat.name}>{cat.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Price ($)</label>
-                    <input type="number" name="price" value={formData.price} onChange={handleInputChange} step="0.01" min="0" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] outline-none transition-all text-[#1f2937]" placeholder="0.00" required />
-                  </div>
+                  <div><label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Category</label><select name="category" value={formData.category} onChange={handleInputChange} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold bg-white" required><option value="" disabled>Select a category</option>{categories.map(cat => (<option key={cat.name} value={cat.name}>{cat.name}</option>))}</select></div>
+                  <div><label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Price ($)</label><input type="number" name="price" value={formData.price} onChange={handleInputChange} step="0.01" min="0" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-[14px] font-semibold" required /></div>
                 </div>
-
-                <div>
-                  <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Image</label>
-                  <input type="file" onChange={handleImageChange} accept="image/*" className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-[13px] font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-bold file:bg-gray-100 file:text-[#1f2937] hover:file:bg-gray-200 cursor-pointer text-gray-500" />
-                </div>
-
-                <label className="flex items-center gap-3 cursor-pointer mt-2 w-max p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${formData.available ? "bg-[#d05322]" : "bg-gray-300"}`}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.available ? "translate-x-4" : "translate-x-0"}`}/>
-                  </div>
-                  <input type="checkbox" name="available" checked={formData.available} onChange={handleInputChange} className="hidden" />
-                  <span className="text-[13px] font-bold text-[#1f2937]">Item is available for ordering</span>
-                </label>
-
-                <div className="mt-8 flex gap-4 pt-4 border-t border-gray-100">
-                  <button type="submit" className="flex-1 rounded-xl bg-[#d05322] hover:bg-[#b84318] py-3.5 text-[13px] font-extrabold text-white tracking-widest uppercase transition-colors shadow-md">
-                    {editingItem ? "SAVE CHANGES" : "CREATE ITEM"}
-                  </button>
-                  <button type="button" onClick={resetForm} className="flex-1 rounded-xl border border-gray-300 hover:border-gray-400 bg-white py-3.5 text-[13px] font-extrabold text-[#1f2937] tracking-widest uppercase transition-colors shadow-sm">
-                    CANCEL
-                  </button>
-                </div>
+                <div><label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Item Image</label><input type="file" onChange={handleImageChange} accept="image/*" className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-[13px] font-semibold" /></div>
+                <label className="flex items-center gap-3 cursor-pointer mt-2 w-max p-2 rounded-lg hover:bg-gray-50"><div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${formData.available ? "bg-[#d05322]" : "bg-gray-300"}`}><div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.available ? "translate-x-4" : "translate-x-0"}`}/></div><input type="checkbox" name="available" checked={formData.available} onChange={handleInputChange} className="hidden" /><span className="text-[13px] font-bold text-[#1f2937]">Item is available</span></label>
+                <div className="mt-8 flex gap-4 pt-4 border-t border-gray-100"><button type="submit" className="flex-1 rounded-xl bg-[#d05322] py-3.5 text-[13px] font-extrabold text-white tracking-widest uppercase shadow-md">SAVE</button><button type="button" onClick={resetForm} className="flex-1 rounded-xl border border-gray-300 bg-white py-3.5 text-[13px] font-extrabold tracking-widest uppercase">CANCEL</button></div>
               </form>
             </div>
           </div>
         )}
 
-        <footer className="mt-auto pt-8 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3 text-[12px]">
-             <h3 className="font-bold italic text-[#d05322] text-[14px]">Digital Maitre D</h3>
-             <span className="text-[#9ca3af]">|</span>
-             <p className="text-[#6b7280] font-medium">Elevating restaurant operations with premium design.</p>
-          </div>
-          <div className="flex gap-6 text-[12px] font-semibold text-[#6b7280]">
-            <Link to="/terms" className="hover:text-[#1f2937] transition-colors">Terms of Service</Link>
-            <Link to="/privacy" className="hover:text-[#1f2937] transition-colors">Privacy Policy</Link>
-            <Link to="/support" className="hover:text-[#1f2937] transition-colors">Partner Support</Link>
-          </div>
+        <footer className="mt-auto pt-8 pb-8 border-t border-[#f3f4f6] flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em]">© 2026 DIGITAL MAITRE D' • HIGH CULINARY LOGISTICS</p>
         </footer>
-
       </div>
     </div>
   );
