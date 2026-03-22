@@ -1,0 +1,515 @@
+openapi: 3.0.0
+info:
+  title: Fast Food - Notification Service API Documentation
+  description: >
+    Notification service responsible of sending SMS notifications and emails to the customers, drivers and restaurents about their respective order
+  version: 1.0.0
+  contact:
+    name: Notification Service
+
+servers:
+  - url: http://localhost:8080
+    description: Local Development
+  - url: https://fastfood.com
+    description: Production
+
+tags:
+  - name: Customer Notifications
+    description: Notifications sent to customers about their orders
+  - name: Delivery Notifications
+    description: Notifications sent to delivery personnel
+  - name: Restaurant Notifications
+    description: Notifications sent to restaurants
+  - name: Admin Notifications
+    description: System alert notifications for admins
+
+paths:
+# ---- CUSTOMER ENDPOINTS
+  /api/v1/notifications/customer/order-confirmed:
+    post:
+      tags:
+        - Customer Notifications
+      summary: Send Order Confirmed notification
+      description: Notifies the customer that their order has been confirmed. And sends Email and SMS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "pamali@email.com"
+              recipientPhone: "+94771234567"
+              restaurentName: "Burger Hut"
+              total: 1500.00
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request - Missing required fields
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/customer/order-delivered:
+    post:
+      tags:
+        - Customer Notifications
+      summary: Send Order Delivered notification
+      description: Notifies the customer that order has been delivered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "pamali@email.com"
+              recipientPhone: "+94771234567"
+              restaurentName: "Burger Hut"
+              total: 1500.00
+              sendEmail: true
+              sendSMS: false
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/customer/payment-success:
+    post:
+      tags:
+        - Customer Notifications
+      summary: Send Payment Successful notification
+      description: Payment received successfully notification to the customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "pamali@email.com"
+              recipientPhone: "+94771234567"
+              restaurentName: "Burger Hut"
+              total: 1500.00
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+# ---- DELIVERY ENDPOINTS
+  /api/v1/notifications/delivery/delivery-assinged:
+    post:
+      tags:
+        - Delivery Notifications
+      summary: Send Delivery Person Assigned notification
+      description: >
+        Notifies the delivery person that they have been assigned a new order.And also notifies the customer that a delivery person is on the way.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "driver@email.com"
+              recipientPhone: "+94779876543"
+              restaurantName: "Burger Hut"
+              deliveryAddress: "123 Main St, Colombo"
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/delivery/on-the-way:
+    post:
+      tags:
+        - Delivery Notifications
+      summary: Send Order On The Way notification
+      description: Delivery person has picked up the order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "driver@email.com"
+              recipientPhone: "+94779876543"
+              restaurantName: "Burger Hut"
+              deliveryAddress: "123 Main St, Colombo"
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/delivery/delivery-cancelled:
+    post:
+      tags:
+        - Delivery Notifications
+      summary: Send Delivery Cancelled notification
+      description: Notifies that the delivery has been cancelled due to unforeseen circumstances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "driver@email.com"
+              recipientPhone: "+94779876543"
+              restaurantName: "Burger Hut"
+              deliveryAddress: "123 Main St, Colombo"
+              sendEmail: false
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+# ---- RESTAURANT ENDPOINTS
+  /api/v1/notifications/restaurent/new-order:
+    post:
+      tags:
+        - Restaurant Notifications
+      summary: Send New Order notification to Restaurant
+      description: Notifies the restaurant that a new order has been placed and needs confirmation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestaurantNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "burgerhut@email.com"
+              recipientPhone: "+94112345678"
+              total: 1500.00
+              orderedItems: "2x Burger, 1x Fries, 2x Coke"
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/restaurent/order-accepted:
+    post:
+      tags:
+        - Restaurant Notifications
+      summary: Send Order Accepted notification to Restaurant
+      description: Confirms that the restaurant has accepted and is processing the order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestaurantNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "burgerhut@email.com"
+              recipientPhone: "+94112345678"
+              total: 1500.00
+              orderedItems: "2x Burger, 1x Fries, 2x Coke"
+              sendEmail: true
+              sendSMS: false
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+  /api/v1/notifications/restaurent/order-cancelled:
+    post:
+      tags:
+        - Restaurant Notifications
+      summary: Send Order Cancelled notification to Restaurant
+      description: Notifies the restaurant that an order has been cancelled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestaurantNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "burgerhut@email.com"
+              recipientPhone: "+94112345678"
+              total: 1500.00
+              orderedItems: "2x Burger, 1x Fries"
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Notification sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+# ---- ADMIN ENDPOINTS
+  /api/v1/notifications/admin/system-issues:
+    post:
+      tags:
+        - Admin Notifications
+      summary: Send System Alert to Admin
+      description: Sends a critical system alert email/SMS to the admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminNotificationRequest'
+            example:
+              orderId: "ORD-001"
+              recipientEmail: "admin@email.com"
+              recipientPhone: "+94700000000"
+              sendEmail: true
+              sendSMS: true
+      responses:
+        "200":
+          description: Alert sent and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+
+# SCHEMAS
+components:
+  schemas:
+
+    CustomerNotificationRequest:
+      type: object
+      required:
+        - orderId
+        - recipientEmail
+        - restaurentName
+        - total
+        - sendEmail
+        - sendSMS
+      properties:
+        orderId:
+          type: string
+          example: "ORD-001"
+        recipientEmail:
+          type: string
+          format: email
+          example: "customer@email.com"
+        recipientPhone:
+          type: string
+          example: "+94771234567"
+        restaurentName:
+          type: string
+          example: "Burger Hut"
+        total:
+          type: number
+          format: double
+          example: 1500.00
+        sendEmail:
+          type: boolean
+          example: true
+        sendSMS:
+          type: boolean
+          example: false
+
+    DeliveryNotificationRequest:
+      type: object
+      required:
+        - orderId
+        - recipientEmail
+        - restaurantName
+        - deliveryAddress
+        - sendEmail
+        - sendSMS
+      properties:
+        orderId:
+          type: string
+          example: "ORD-001"
+        recipientEmail:
+          type: string
+          format: email
+          example: "driver@email.com"
+        recipientPhone:
+          type: string
+          example: "+94779876543"
+        restaurantName:
+          type: string
+          example: "Burger Hut"
+        deliveryAddress:
+          type: string
+          example: "123 Main St, Colombo"
+        sendEmail:
+          type: boolean
+          example: true
+        sendSMS:
+          type: boolean
+          example: true
+
+    RestaurantNotificationRequest:
+      type: object
+      required:
+        - orderId
+        - recipientEmail
+        - total
+        - orderedItems
+        - sendEmail
+        - sendSMS
+      properties:
+        orderId:
+          type: string
+          example: "ORD-001"
+        recipientEmail:
+          type: string
+          format: email
+          example: "restaurant@email.com"
+        recipientPhone:
+          type: string
+          example: "+94112345678"
+        total:
+          type: number
+          format: double
+          example: 1500.00
+        orderedItems:
+          type: string
+          example: "2x Burger, 1x Fries, 2x Coke"
+        sendEmail:
+          type: boolean
+          example: true
+        sendSMS:
+          type: boolean
+          example: false
+
+    AdminNotificationRequest:
+      type: object
+      required:
+        - orderId
+        - recipientEmail
+        - sendEmail
+        - sendSMS
+      properties:
+        orderId:
+          type: string
+          example: "ORD-001"
+        recipientEmail:
+          type: string
+          format: email
+          example: "admin@email.com"
+        recipientPhone:
+          type: string
+          example: "+94700000000"
+        sendEmail:
+          type: boolean
+          example: true
+        sendSMS:
+          type: boolean
+          example: true
+
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f1a2b3c4d5e6f7a8b9c0d1"
+        orderId:
+          type: string
+          example: "ORD-001"
+        title:
+          type: string
+          example: "Order Confirmed in OrderID ORD-001"
+        message:
+          type: string
+          example: "Your order ORD-001 has been confirmed successfully!!"
+        notificationType:
+          type: string
+          enum:
+            - ORDER_CONFIRMED
+            - ORDER_DELIVERED
+            - PAYMENT_SUCCESS
+            - DELIVERY_CONFIRMED
+            - DELIVERY_ON_THE_WAY
+            - DELIVERY_CANCELED
+            - NEW_ORDER
+            - ORDER_ACCEPTED
+            - ORDER_CANCELLED
+            - SYSTEM_ALERT
+          example: "ORDER_CONFIRMED"
+        recipientEmail:
+          type: string
+          example: "customer@email.com"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-21T10:30:00"

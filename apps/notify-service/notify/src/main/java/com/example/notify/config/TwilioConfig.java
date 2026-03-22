@@ -29,9 +29,5 @@ public class TwilioConfig {
         System.out.println("Twilio Auth Token: " + authToken);      
         System.out.println("Twilio Phone Number: " + phoneNumber);
     }
-
-
-
     
 }
-
