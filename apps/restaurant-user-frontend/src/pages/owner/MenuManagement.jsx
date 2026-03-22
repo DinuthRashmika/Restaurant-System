@@ -18,12 +18,10 @@ export default function MenuManagement() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   
-  // NEW: State to remember empty categories the user creates manually
   const [customCategories, setCustomCategories] = useState(() => {
     return JSON.parse(localStorage.getItem("customCategories")) || [];
   });
   
-  // NEW: Modal controls for adding a category
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -33,6 +31,11 @@ export default function MenuManagement() {
   const [editingItem, setEditingItem] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
   
+  // --- NEW: Search and Filter State ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'available', 'sold_out'
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -49,7 +52,7 @@ export default function MenuManagement() {
 
   useEffect(() => {
     fetchMenuItems();
-  }, [customCategories]); // Refetch/rebuild when a custom category is added
+  }, [customCategories]); 
 
   const fetchMenuItems = async () => {
     try {
@@ -59,16 +62,14 @@ export default function MenuManagement() {
       
       const categoryMap = new Map();
       
-      // 1. Get categories from items that exist in the DB
       items.forEach(item => {
         const catName = item.category || "Uncategorized";
         categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
       });
 
-      // 2. Add custom empty categories the user manually created
       customCategories.forEach(catName => {
         if (!categoryMap.has(catName)) {
-          categoryMap.set(catName, 0); // Count is 0
+          categoryMap.set(catName, 0); 
         }
       });
 
@@ -88,7 +89,23 @@ export default function MenuManagement() {
     }
   };
 
-  const currentCategoryItems = menuItems.filter(item => (item.category || "Uncategorized") === activeCategory);
+  // --- THE FIX: Apply Active Category, Search Query, and Filter Status ---
+  const displayedItems = menuItems.filter(item => {
+    // 1. Check Category
+    const catMatch = (item.category || "Uncategorized") === activeCategory;
+    
+    // 2. Check Search Query (Name or Description)
+    const searchMatch = searchQuery.trim() === "" || 
+                        (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                        
+    // 3. Check Filter Status (Available / Sold Out)
+    let filterMatch = true;
+    if (filterStatus === "available") filterMatch = item.available === true;
+    if (filterStatus === "sold_out") filterMatch = item.available === false;
+
+    return catMatch && searchMatch && filterMatch;
+  });
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -180,7 +197,6 @@ export default function MenuManagement() {
     }
   };
 
-  // --- NEW: Category Form Handlers ---
   const handleAddCategorySubmit = (e) => {
     e.preventDefault();
     const cleanName = newCategoryName.trim();
@@ -255,18 +271,55 @@ export default function MenuManagement() {
         <div className="flex items-center justify-between mb-8 mt-4">
           <h2 className="text-[32px] font-extrabold text-[#1f2937] tracking-tight">Menu Editor</h2>
           <div className="flex items-center gap-4">
+            
+            {/* THE FIX: Active Search Bar */}
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322]" size={16} strokeWidth={2.5}/>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322] transition-colors" size={16} strokeWidth={2.5}/>
               <input 
                 type="text" 
                 placeholder="SEARCH ITEM" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-white border border-[#e5e7eb] rounded-lg pl-10 pr-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] w-[220px] transition-all uppercase shadow-sm"
               />
             </div>
-            <button className="flex items-center gap-2 bg-white border border-[#e5e7eb] rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider text-[#1f2937] hover:border-[#d05322] hover:text-[#d05322] transition-colors uppercase shadow-sm">
-              <SlidersHorizontal size={16} strokeWidth={2.5} />
-              FILTER
-            </button>
+            
+            {/* THE FIX: Active Filter Dropdown Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className={`flex items-center gap-2 bg-white border ${showFilterDropdown || filterStatus !== 'all' ? 'border-[#d05322] text-[#d05322]' : 'border-[#e5e7eb] text-[#1f2937]'} rounded-lg px-4 py-2.5 text-[12px] font-bold tracking-wider hover:border-[#d05322] hover:text-[#d05322] transition-colors uppercase shadow-sm`}
+              >
+                <SlidersHorizontal size={16} strokeWidth={2.5} />
+                FILTER {filterStatus !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-[#d05322] ml-1"></span>}
+              </button>
+
+              {/* Dropdown Menu */}
+              {showFilterDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-4 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 mb-1">Availability</div>
+                  <button 
+                    onClick={() => {setFilterStatus('all'); setShowFilterDropdown(false);}} 
+                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'all' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    All Items
+                  </button>
+                  <button 
+                    onClick={() => {setFilterStatus('available'); setShowFilterDropdown(false);}} 
+                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'available' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    Available Only
+                  </button>
+                  <button 
+                    onClick={() => {setFilterStatus('sold_out'); setShowFilterDropdown(false);}} 
+                    className={`w-full text-left px-4 py-2.5 text-[13px] font-bold transition-colors ${filterStatus === 'sold_out' ? 'text-[#d05322] bg-orange-50' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    Sold Out Only
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button 
               onClick={() => {
                 setFormData(prev => ({...prev, category: activeCategory || (categories.length > 0 ? categories[0].name : "")}));
@@ -293,7 +346,7 @@ export default function MenuManagement() {
               {categories.map((cat) => (
                 <button
                   key={cat.name}
-                  onClick={() => setActiveCategory(cat.name)}
+                  onClick={() => {setActiveCategory(cat.name); setSearchQuery(""); setFilterStatus("all");}}
                   className={`flex items-center justify-between px-4 py-3 text-left w-full transition-all group border-l-2 ${
                     activeCategory === cat.name 
                       ? "border-[#d05322] bg-white shadow-sm font-bold text-[#1f2937]" 
@@ -310,7 +363,6 @@ export default function MenuManagement() {
               ))}
             </div>
             
-            {/* NEW: ADD CATEGORY BUTTON */}
             <button 
               onClick={() => setShowCategoryModal(true)}
               className="flex items-center gap-2 text-[12px] font-bold text-[#d05322] uppercase tracking-wider mt-6 px-6 hover:text-[#b84318] transition-colors"
@@ -322,7 +374,11 @@ export default function MenuManagement() {
           <div className="flex-1 min-w-0 bg-white rounded-3xl border border-[#e5e7eb] shadow-sm flex flex-col overflow-hidden mb-8">
             <div className="px-8 py-6 border-b border-[#e5e7eb] flex items-center justify-between bg-white">
               <div>
-                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">{activeCategory || "Menu Items"}</h3>
+                <h3 className="text-[20px] font-extrabold text-[#1f2937] tracking-tight">
+                  {activeCategory || "Menu Items"} 
+                  {searchQuery && <span className="text-[14px] font-semibold text-[#9ca3af] ml-2">Search: "{searchQuery}"</span>}
+                  {filterStatus !== 'all' && <span className="text-[14px] font-semibold text-[#d05322] ml-2">({filterStatus === 'available' ? 'Available Only' : 'Sold Out Only'})</span>}
+                </h3>
                 <p className="text-[13px] text-[#9ca3af] font-medium mt-1">Drag to reorder items</p>
               </div>
             </div>
@@ -340,15 +396,15 @@ export default function MenuManagement() {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan="4" className="py-8 text-center text-gray-500 text-[14px] font-semibold">Loading items...</td></tr>
-                  ) : currentCategoryItems.length === 0 ? (
+                  ) : displayedItems.length === 0 ? (
                     <tr>
                       <td colSpan="4" className="py-12 text-center text-gray-500">
-                        <div className="text-[15px] font-bold text-[#1f2937] mb-1">Category is empty</div>
-                        <div className="text-[13px]">Click "Add New Item" to create a dish here.</div>
+                        <div className="text-[15px] font-bold text-[#1f2937] mb-1">No items match your criteria.</div>
+                        <div className="text-[13px]">Try adjusting your search or filter settings.</div>
                       </td>
                     </tr>
                   ) : (
-                    currentCategoryItems.map((item) => (
+                    displayedItems.map((item) => (
                       <tr key={item.id} className="border-b last:border-b-0 border-[#f3f4f6] hover:bg-[#fafaf9] transition-colors group">
                         <td className="py-4 px-8">
                           <div className="flex items-center gap-5">
@@ -388,7 +444,7 @@ export default function MenuManagement() {
           </div>
         </div>
 
-        {/* --- NEW: CATEGORY ADD MODAL --- */}
+        {/* Category Add Modal */}
         {showCategoryModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl p-6 border border-gray-100">
@@ -438,7 +494,6 @@ export default function MenuManagement() {
                 <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className="mb-2 block text-[11px] font-black uppercase tracking-widest text-[#9ca3af]">Category</label>
-                    {/* THE FIX: Switched back to a strict Select Dropdown! */}
                     <select
                       name="category"
                       value={formData.category}

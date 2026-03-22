@@ -7,7 +7,8 @@ import {
   Clock,
   ChefHat,
   CheckCircle2,
-  PackageCheck
+  PackageCheck,
+  Search // Added Search Icon
 } from "lucide-react";
 import { getAllOrders, updateOrderStatus } from "../../services/orderService"; 
 import { useAuth } from "../../context/AuthContext";
@@ -22,8 +23,10 @@ export default function OwnerOrdersDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // Default to 'all' so orders show up immediately
   const [activeTab, setActiveTab] = useState("all"); 
+  
+  // NEW: State for the search filter
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleLogout = () => {
     logout();
@@ -89,7 +92,6 @@ export default function OwnerOrdersDashboard() {
     try {
       setError(""); 
       
-      // Optimistic UI update for instant feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
       
       await updateOrderStatus(orderId, newStatus);
@@ -102,11 +104,10 @@ export default function OwnerOrdersDashboard() {
       setError(`Backend Error 500: The server crashed when changing status to ${newStatus}. Please check your Java terminal logs.`);
       setTimeout(() => setError(""), 8000);
       
-      fetchOrders(); // Revert the UI since the backend rejected the update
+      fetchOrders(); 
     }
   };
 
-  // Mapped EXACTLY to your Spring Boot OrderStatus enums
   const getWorkflowDetails = (rawStatus) => {
     const s = String(rawStatus || "PENDING").toUpperCase();
     if (s === "PENDING") return { color: "bg-red-50 text-red-600 border-red-100", label: "NEW", nextStatus: "PREPARING", btnText: "APPROVE", icon: <AlertCircle size={14}/> };
@@ -117,19 +118,29 @@ export default function OwnerOrdersDashboard() {
     return { color: "bg-gray-50 text-gray-600 border-gray-200", label: s, nextStatus: null, btnText: null, icon: <Clock size={14}/> };
   };
 
-  // Perfectly filter based on your backend database enums
   const incomingOrders = orders.filter(o => String(o.status || "").toUpperCase() === "PENDING");
   const kitchenOrders = orders.filter(o => String(o.status || "").toUpperCase() === "PREPARING");
   const readyOrders = orders.filter(o => String(o.status || "").toUpperCase() === "CONFIRMED");
   const completedOrders = orders.filter(o => String(o.status || "").toUpperCase() === "COMPLETED");
 
+  // THE FIX: Active Orders now applies the Search Filter instantly
   const getActiveOrders = () => {
-      if(activeTab === "all") return orders;
-      if(activeTab === "incoming") return incomingOrders;
-      if(activeTab === "kitchen") return kitchenOrders;
-      if(activeTab === "ready") return readyOrders;
-      if(activeTab === "completed") return completedOrders;
-      return orders;
+      let baseOrders = orders;
+      if(activeTab === "incoming") baseOrders = incomingOrders;
+      else if(activeTab === "kitchen") baseOrders = kitchenOrders;
+      else if(activeTab === "ready") baseOrders = readyOrders;
+      else if(activeTab === "completed") baseOrders = completedOrders;
+      
+      if (searchQuery.trim() !== "") {
+          const q = searchQuery.toLowerCase();
+          return baseOrders.filter(o => 
+              (o.id && String(o.id).toLowerCase().includes(q)) ||
+              (o.customerName && String(o.customerName).toLowerCase().includes(q)) ||
+              (o.deliveryAddress && String(o.deliveryAddress).toLowerCase().includes(q))
+          );
+      }
+      
+      return baseOrders;
   };
 
   const activeOrders = getActiveOrders();
@@ -196,30 +207,44 @@ export default function OwnerOrdersDashboard() {
             <p className="text-[14px] text-[#6b7280] mt-1">Manage the kitchen workflow and fulfill customer requests.</p>
           </div>
           
-          <div className="flex bg-white rounded-full p-1.5 border border-[#e5e7eb] shadow-sm overflow-x-auto scrollbar-hide">
-            {["ALL", "NEW", "PREPARING", "READY", "COMPLETED"].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(
-                  tab === "ALL" ? "all" : 
-                  tab === "NEW" ? "incoming" : 
-                  tab === "PREPARING" ? "kitchen" : 
-                  tab === "READY" ? "ready" : 
-                  "completed"
-                )}
-                className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-widest uppercase transition-all whitespace-nowrap ${
-                  (activeTab === "incoming" && tab === "NEW") || 
-                  (activeTab === "kitchen" && tab === "PREPARING") || 
-                  (activeTab === "ready" && tab === "READY") || 
-                  (activeTab === "all" && tab === "ALL") ||
-                  (activeTab === "completed" && tab === "COMPLETED")
-                    ? "bg-[#1f2937] text-white shadow-md" 
-                    : "text-[#6b7280] hover:text-[#1f2937] hover:bg-gray-50"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+            {/* NEW: Search Bar Component */}
+            <div className="relative group w-full sm:w-64 flex-shrink-0">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af] group-focus-within:text-[#d05322] transition-colors" size={16} strokeWidth={2.5}/>
+              <input
+                type="text"
+                placeholder="Search by ID or Name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-[#e5e7eb] rounded-full pl-10 pr-4 py-2.5 text-[12px] font-bold text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#d05322] focus:ring-1 focus:ring-[#d05322] transition-all shadow-sm"
+              />
+            </div>
+
+            <div className="flex bg-white rounded-full p-1.5 border border-[#e5e7eb] shadow-sm overflow-x-auto scrollbar-hide w-full sm:w-auto">
+              {["ALL", "NEW", "PREPARING", "READY", "COMPLETED"].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(
+                    tab === "ALL" ? "all" : 
+                    tab === "NEW" ? "incoming" : 
+                    tab === "PREPARING" ? "kitchen" : 
+                    tab === "READY" ? "ready" : 
+                    "completed"
+                  )}
+                  className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-widest uppercase transition-all whitespace-nowrap ${
+                    (activeTab === "incoming" && tab === "NEW") || 
+                    (activeTab === "kitchen" && tab === "PREPARING") || 
+                    (activeTab === "ready" && tab === "READY") || 
+                    (activeTab === "all" && tab === "ALL") ||
+                    (activeTab === "completed" && tab === "COMPLETED")
+                      ? "bg-[#1f2937] text-white shadow-md" 
+                      : "text-[#6b7280] hover:text-[#1f2937] hover:bg-gray-50"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -252,13 +277,16 @@ export default function OwnerOrdersDashboard() {
           <div className="bg-white border-2 border-dashed border-[#e5e7eb] rounded-[2rem] p-16 text-center">
             <PackageCheck size={48} className="mx-auto text-gray-300 mb-4" strokeWidth={1.5} />
             <h3 className="text-xl font-extrabold text-gray-900 mb-2">No orders to display</h3>
-            <p className="text-gray-500 text-sm">There are no orders in the "{activeTab.toUpperCase()}" category.</p>
+            <p className="text-gray-500 text-sm">
+              {searchQuery ? `No orders found matching "${searchQuery}"` : `There are no orders in the "${activeTab.toUpperCase()}" category.`}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {activeOrders.map(order => {
               const workflow = getWorkflowDetails(order.status);
-              const orderTotal = order.totalAmount || order.totalPrice || order.items?.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0) || 0;
+              // SAFELY parsing the order total to avoid NaN errors
+              const orderTotal = parseFloat(order.totalAmount || order.totalPrice || order.items?.reduce((sum, i) => sum + (parseFloat(i.unitPrice || i.price || 0) * parseInt(i.quantity || 1, 10)), 0) || 0);
               const formattedDate = order.createdAt || order.orderDate ? new Date(order.createdAt || order.orderDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just Now";
 
               return (
