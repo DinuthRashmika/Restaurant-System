@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -35,7 +36,7 @@ public class EmailService {
     }
 
     //EMAIL WITH ATTACHMENT
-    public void sendEmailAttachments(String toEmail, String subject, String body) {
+    public void sendEmailAttachments(String toEmail, String subject, String body) throws IOException {
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -46,7 +47,7 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(body, true);
 
-            helper.addAttachment("logo.jpg", new File("//Users//pamali.ranasinghe//Downloads//logo.jpg"));
+            helper.addAttachment("logo.jpg", new ClassPathResource("img/logo.jpg").getFile());
 
             mailSender.send(message);
             System.out.println("Email sent successfully to " + toEmail);
@@ -78,14 +79,15 @@ public class EmailService {
                 helper.setText(template, true);
             } 
 
-            helper.addInline("logo.jpg", 
-                new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
+            // helper.addInline("logo.jpg", 
+            //     new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
 
-            helper.addInline("logo.jpg", 
-                new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
+            // helper.addInline("logo.jpg", 
+            //     new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
 
-            helper.addInline("logo.jpg", 
-                new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
+            // helper.addInline("logo.jpg", 
+            //     new File("E:/Uni Projects/Fast-Food-feture-finalize-project/backendspring/notificationServices/src/main/resources/img/logo.jpg"));
+            helper.addInline("logo.jpg", new ClassPathResource("img/logo.jpg"));
 
             mailSender.send(message);
             System.out.println("Email sent successfully to " + toEmail);
@@ -118,44 +120,7 @@ public class EmailService {
                 helper.setText(template, true);
             } 
 
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe//Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
-
-            mailSender.send(message);
-            System.out.println("Email sent successfully to " + toEmail);
-
-        } catch (MessagingException e) {
-
-            e.printStackTrace();
-            System.out.println("Failed to send email to " + toEmail);
-        }
-    }
-
-
-    //DELIVERY EMAILS
-    public void sendEmailToDeliveryPersonnal(String toEmail, String subject, String body, String orderId) throws IOException {
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
-
-            helper.setFrom("sapunikasr@gmail.com");
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-
-            try(var inputStream = Objects.requireNonNull(EmailService.class.getResourceAsStream("/templates/htmltemplateDelivery.html")) ) {
-
-                String template = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-                template = template.replace("{{title}}", subject)
-                                .replace("{{message}}", body)
-                                .replace("{{orderId}}", orderId);
-                helper.setText(template, true);
-            } 
-
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe//Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
+            helper.addInline("logo.jpg", new ClassPathResource("img/logo.jpg"));
 
             mailSender.send(message);
             System.out.println("Email sent successfully to " + toEmail);
@@ -187,9 +152,7 @@ public class EmailService {
                 helper.setText(template, true);
             } 
 
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe//Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
-            helper.addInline("logo.jpg", new File("//Users//pamali.ranasinghe/Documents//UNI//DS//Assignment 1//logo.jpg"));
+            helper.addInline("logo.jpg", new ClassPathResource("img/logo.jpg"));
 
             mailSender.send(message);
             System.out.println("Email sent successfully to " + toEmail);

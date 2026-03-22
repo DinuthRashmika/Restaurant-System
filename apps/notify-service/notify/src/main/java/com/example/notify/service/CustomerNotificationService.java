@@ -67,22 +67,22 @@ public class CustomerNotificationService {
     }
 
 
-    //Delivery Confirmation notification - Customer
-    public Notification sendOrderDeliveredNotification(Notification notification){
-        notification.setTitle("Order Delivered - OrderID " + notification.getOrderId());
-        notification.setMessage("Your order " + notification.getOrderId() + " has been delivered successfully!!");
-        notification.setNotificationType("ORDER_DELIVERED");
+    //Order Finished notification - Customer
+    public Notification sendOrderFinishedNotification(Notification notification){
+        notification.setTitle("Order Finished - OrderID " + notification.getOrderId());
+        notification.setMessage("Your order " + notification.getOrderId() + " has been finished successfully!!");
+        notification.setNotificationType("ORDER_FINISHED");
         notification.setTimestamp(LocalDateTime.now());
 
         try {
             if (notification.isSendEmail()) {
 
-                logger.info("Logger - Sending delivery confirmation email to " + notification.getRecipientEmail());
+                logger.info("Logger - Sending finished confirmation email to " + notification.getRecipientEmail());
 
                 emailService.sendEmailToCustomer(
                     notification.getRecipientEmail(),   // Recipient email
-                    "Order Delivered - OrderID " + notification.getOrderId(), // Subject
-                    "Your order " + notification.getOrderId() + " has been delivered successfully!", // Body
+                    "Order Finished - OrderID " + notification.getOrderId(), // Subject
+                    "Your order " + notification.getOrderId() + " has been finished successfully!", // Body
                     notification.getOrderId() // Order ID
                 );
             }
@@ -92,13 +92,13 @@ public class CustomerNotificationService {
                 logger.info("Logger - Sending SMS to " + notification.getRecipientPhone() + " :loggers");
                 smsService.sendSMS(
                     notification.getRecipientPhone(), 
-                    "Your order " + notification.getOrderId() + " has been delivered successfully! Our Delivery staff is waiting for you to pick up!");
+                    "Your order " + notification.getOrderId() + " has been finished successfully! Our staff is waiting for you to pick up!");
                 
             }
 
         } catch (Exception e) {
             System.out.println(e.getMessage()); 
-            logger.error("Logger - Failed to send delivery confirmation notifications", e);
+            logger.error("Logger - Failed to send order finished notifications", e);
         }
 
         return notificationRepository.save(notification);
@@ -141,89 +141,6 @@ public class CustomerNotificationService {
 
         return notificationRepository.save(notification);
     }
-
-    // //Order Confirmation notification - Customer (Email only no DB save)
-    // public void sendOrderConfirmNotification(Notification notification) {
-    //     try {
-    //         if (notification.isSendEmail()) {
-    //             logger.info("Logger - Sending email to " + notification.getRecipientEmail());
-    
-    //             emailService.sendEmailToCustomer(
-    //                 notification.getRecipientEmail(),   // Recipient email
-    //                 "Order Confirmed in OrderID " + notification.getOrderId(), // Subject
-    //                 "Your order " + notification.getOrderId() + " has been confirmed successfully!", // Body
-    //                 notification.getOrderId() // Order ID
-    //             );
-    //         }
-
-    //         if(notification.isSendSMS()){  
-
-    //             logger.info("Logger - Sending SMS to " + notification.getRecipientPhone() + " :loggers");
-    //             smsService.sendSMS(
-    //                 notification.getRecipientPhone(), 
-    //                 "Hello! Your order " + notification.getOrderId() +  " has been confirmed successfully! Your order is on the way!");
-                
-    //         }
-
-    //     } catch (Exception e) {
-    //         System.out.println(e.getMessage());
-    //         logger.error("Logger - Failed to send customer email", e);
-    //     }
-    // }
-
-    // //Order Delivered - Customer (Email only no DB save)
-    // public void sendOrderDeliveredNotification(Notification notification) {
-    //     try {
-    //         if (notification.isSendEmail()) {
-    //             logger.info("Logger - Sending email to " + notification.getRecipientEmail());
-    //             emailService.sendEmailToCustomer(
-    //                 notification.getRecipientEmail(),
-    //                 "Delivery successful! Order " + notification.getOrderId(),
-    //                 "Your order " + notification.getOrderId() + " has reached its destination! You may now receive it from our delivery staff",
-    //                 notification.getOrderId()
-    //             );
-    //         }
-
-    //         if(notification.isSendSMS()){  
-
-    //             logger.info("Logger - Sending SMS to " + notification.getRecipientPhone() + " :loggers");
-    //             smsService.sendSMS(
-    //                 notification.getRecipientPhone(), 
-    //                 "Hello Customer! Your order " + notification.getOrderId() + " has been delivered successfully! You can now receive it from our delivery staff.");
-                
-    //         }
-    //     } catch (Exception e) {
-    //         logger.error("Logger - Failed to send customer delivery email", e);
-    //     }
-    // }
-
-    // // Payment Success - Customer (Email only no DB save)
-    // public void sendPaymentSuccessNotification(Notification notification) {
-    //     try {
-    //         if (notification.isSendEmail()) {
-    //             logger.info("Logger - Sending email to " + notification.getRecipientEmail());
-    //             emailService.sendEmailToCustomer(
-    //                 notification.getRecipientEmail(),
-    //                 "Payment Successful for Order ID " + notification.getOrderId() + "!",
-    //                 "We’ve received your payment successfully. Thank you for your purchase with Our Ordering App!",
-    //                 notification.getOrderId()
-    //             );
-    //         }
-
-    //         if(notification.isSendSMS()){  
-
-    //             logger.info("Logger - Sending SMS to " + notification.getRecipientPhone() + " :loggers");
-    //             smsService.sendSMS(
-    //                 notification.getRecipientPhone(), 
-    //                 "Hello Customer! We’ve received your payment successfully for OrderID - "+ notification.getOrderId() +" .Thank you for your purchase with Our Ordering App!");
-                
-    //         }
-
-    //     } catch (Exception e) {
-    //         logger.error("Logger - Failed to send customer payment email", e);
-    //     }
-    // }
-
 
 
 }

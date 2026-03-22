@@ -29,9 +29,9 @@ public class CustomerNotificationController {
     }
 
     //Order Delivered 
-    @PostMapping("/order-delivered")
-    public ResponseEntity<Notification> sendOrderDeliveredNotification(@RequestBody Notification notification) {
-        Notification savedNotification = notificationService.sendOrderDeliveredNotification(notification);
+    @PostMapping("/order-finished")
+    public ResponseEntity<Notification> sendOrderFinishedNotification(@RequestBody Notification notification) {
+        Notification savedNotification = notificationService.sendOrderFinishedNotification(notification);
         return ResponseEntity.ok(savedNotification); 
     }
 
@@ -42,23 +42,5 @@ public class CustomerNotificationController {
         return ResponseEntity.ok(savedNotification); 
     }
 
-
-    // @PostMapping("/order-confirmed")
-    // public ResponseEntity<String> sendOrderConfirmed(@RequestBody Notification notification) {
-    //     customerNotificationService.sendOrderConfirmNotification(notification);
-    //     return ResponseEntity.ok("Order confirmation email sent (no DB save)");
-    // }
-
-    // @PostMapping("/order-delivered")
-    // public ResponseEntity<String> sendOrderDelivered(@RequestBody Notification notification) {
-    //     customerNotificationService.sendOrderDeliveredNotification(notification);
-    //     return ResponseEntity.ok("Order delivered email sent (no DB save)");
-    // }
-
-    // @PostMapping("/payment-success")
-    // public ResponseEntity<String> sendPaymentSuccess(@RequestBody Notification notification) {
-    //     customerNotificationService.sendPaymentSuccessNotification(notification);
-    //     return ResponseEntity.ok("Payment success email sent (no DB save)");
-    // }
 
 }

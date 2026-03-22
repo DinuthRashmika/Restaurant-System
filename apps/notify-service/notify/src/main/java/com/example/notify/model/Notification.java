@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Notification {
 
     private String id;
-    private String recipientEmail; // Email of the recipient (customer, restaurant, delivery person)
+    private String recipientEmail; // Email of the recipient (customer, restaurant)
     private String recipientPhone; // Phone number (if sending SMS)
     private String orderId; // ID of the order associated with the notification
     private String title;
@@ -16,7 +16,6 @@ public class Notification {
     private String notificationType; // Type of notification (order placed, order delivered, etc.)
     private String status;
     private  LocalDateTime timestamp;
-    // private String deliveryStatus;
 
     private boolean sendEmail = true; //Order Service has the reponsibility to decide only Email or SMS
     private boolean sendSMS = true;

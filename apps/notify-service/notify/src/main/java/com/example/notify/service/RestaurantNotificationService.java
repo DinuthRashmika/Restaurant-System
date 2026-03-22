@@ -1,8 +1,7 @@
 package com.example.notify.service;
 //Restaurent ekk haduwt psse trigger - from server to res -> email only
 //order ekk res giyt psse - from res
-//delivery personnelt dunnt psse - from delivery
-//delivery 
+
 
 
 import java.time.LocalDateTime;
