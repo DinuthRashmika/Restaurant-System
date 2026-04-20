@@ -15,6 +15,7 @@ RUN npm ci --production=false
 COPY . .
 
 # Build the application
+ENV CI=false
 RUN npm run build
 
 # ──────────────────────────────────────────────────
