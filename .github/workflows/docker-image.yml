@@ -62,14 +62,14 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.shenalc }}
+          password: ${{ secrets.dckr_pat_s0gJflyq1ks3-O-85c-_GWUkJgI }}
 
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}
+          images: ${{ secrets.shenalc }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-
@@ -103,14 +103,14 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.shenalc }}
+          password: ${{ secrets.dckr_pat_s0gJflyq1ks3-O-85c-_GWUkJgI }}
 
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/restaurant-frontend
+          images: ${{ secrets.shenalc }}/restaurant-frontend
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-
