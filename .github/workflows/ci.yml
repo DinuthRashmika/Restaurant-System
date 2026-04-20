@@ -1,6 +1,6 @@
 # ============================================================================
 # CI Pipeline - Build & Test All Microservices
-# Triggers on every push and pull request to main branch
+# Triggers on every push and pull request to main_ branch
 # Builds and tests all 4 backend services + frontend in parallel
 # ============================================================================
 
@@ -8,9 +8,9 @@ name: CI - Build & Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main_" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main_" ]
 
 jobs:
   # ─────────────────────────────────────────────────────────────
