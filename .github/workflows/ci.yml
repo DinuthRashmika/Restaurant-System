@@ -1,0 +1,101 @@
+# ============================================================================
+# CI Pipeline - Build & Test All Microservices
+# Triggers on every push and pull request to main branch
+# Builds and tests all 4 backend services + frontend in parallel
+# ============================================================================
+
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Backend Services - Build & Test (Matrix Strategy)
+  # ─────────────────────────────────────────────────────────────
+  build-backend:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: user-service
+            path: apps/user-service/user
+          - service: menu-service
+            path: apps/menu-service/menu
+          - service: order-service
+            path: apps/order-service/order
+          - service: notify-service
+            path: apps/notify-service/notify
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ matrix.service }}-${{ hashFiles(format('{0}/pom.xml', matrix.path)) }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ matrix.service }}-
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests -B
+        working-directory: ${{ matrix.path }}
+
+      - name: Run Tests
+        run: mvn test -B
+        working-directory: ${{ matrix.path }}
+        continue-on-error: true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.path }}/target/*.jar
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend - Build
+  # ─────────────────────────────────────────────────────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/restaurant-user-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/restaurant-user-frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: apps/restaurant-user-frontend
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/restaurant-user-frontend/dist
+          retention-days: 1

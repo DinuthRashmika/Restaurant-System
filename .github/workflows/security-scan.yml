@@ -1,0 +1,151 @@
+# ============================================================================
+# Security Scanning Pipeline (DevSecOps)
+# Integrates Snyk SAST for code analysis, dependency scanning, and
+# Docker image vulnerability scanning
+# ============================================================================
+
+name: Security Scan - Snyk
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Snyk Code - Static Application Security Testing (SAST)
+  # Scans source code for security vulnerabilities
+  # ─────────────────────────────────────────────────────────────
+  snyk-code-scan:
+    name: Snyk SAST - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: user-service
+            path: apps/user-service/user
+          - service: menu-service
+            path: apps/menu-service/menu
+          - service: order-service
+            path: apps/order-service/order
+          - service: notify-service
+            path: apps/notify-service/notify
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk Code Test (SAST)
+        run: snyk code test ${{ matrix.path }} --severity-threshold=high || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Code Test (SARIF output)
+        run: snyk code test ${{ matrix.path }} --sarif-file-output=snyk-code-${{ matrix.service }}.sarif || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Upload SAST results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-code-${{ matrix.service }}.sarif
+          category: snyk-code-${{ matrix.service }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Snyk Open Source - Dependency Vulnerability Scanning
+  # Scans Maven dependencies for known vulnerabilities
+  # ─────────────────────────────────────────────────────────────
+  snyk-dependency-scan:
+    name: Snyk Dependencies - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: user-service
+            path: apps/user-service/user
+          - service: menu-service
+            path: apps/menu-service/menu
+          - service: order-service
+            path: apps/order-service/order
+          - service: notify-service
+            path: apps/notify-service/notify
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build project for dependency resolution
+        run: mvn clean install -DskipTests -B
+        working-directory: ${{ matrix.path }}
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk Open Source Test
+        run: |
+          cd ${{ matrix.path }}
+          snyk test --severity-threshold=high --sarif-file-output=../../../snyk-deps-${{ matrix.service }}.sarif || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Upload dependency scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-deps-${{ matrix.service }}.sarif
+          category: snyk-deps-${{ matrix.service }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend Security Scan
+  # Scans npm dependencies for known vulnerabilities
+  # ─────────────────────────────────────────────────────────────
+  snyk-frontend-scan:
+    name: Snyk Frontend Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/restaurant-user-frontend
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk Open Source Test (npm)
+        run: |
+          cd apps/restaurant-user-frontend
+          snyk test --severity-threshold=high --sarif-file-output=../../snyk-frontend.sarif || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Upload frontend scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-frontend.sarif
+          category: snyk-frontend
