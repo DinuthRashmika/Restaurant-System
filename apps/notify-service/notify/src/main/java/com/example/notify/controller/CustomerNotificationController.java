@@ -12,6 +12,7 @@ import com.example.notify.service.CustomerNotificationService;
 
 @RestController
 @RequestMapping("/api/v1/notifications/customer")
+// trigger deploy
 public class CustomerNotificationController {
 
     private final CustomerNotificationService notificationService;
