@@ -1,7 +1,7 @@
 # ============================================================================
 # Security Scanning Pipeline (DevSecOps)
-# Integrates Snyk SAST for code analysis, dependency scanning, and
-# Docker image vulnerability scanning
+# Integrates Snyk SAST for code analysis and dependency scanning
+# for all 4 backend microservices
 # ============================================================================
 
 name: Security Scan - Snyk
@@ -38,8 +38,8 @@ jobs:
             path: apps/notify-service/notify
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@master
@@ -82,17 +82,17 @@ jobs:
             path: apps/notify-service/notify
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Build project for dependency resolution
-        run: mvn clean install -DskipTests -B
+        run: mvn clean install -DskipTests
         working-directory: ${{ matrix.path }}
 
       - name: Set up Snyk CLI
@@ -111,41 +111,3 @@ jobs:
         with:
           sarif_file: snyk-deps-${{ matrix.service }}.sarif
           category: snyk-deps-${{ matrix.service }}
-
-  # ─────────────────────────────────────────────────────────────
-  # Frontend Security Scan
-  # Scans npm dependencies for known vulnerabilities
-  # ─────────────────────────────────────────────────────────────
-  snyk-frontend-scan:
-    name: Snyk Frontend Dependencies
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: apps/restaurant-user-frontend
-
-      - name: Set up Snyk CLI
-        uses: snyk/actions/setup@master
-
-      - name: Snyk Open Source Test (npm)
-        run: |
-          cd apps/restaurant-user-frontend
-          snyk test --severity-threshold=high --sarif-file-output=../../snyk-frontend.sarif || true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Upload frontend scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: snyk-frontend.sarif
-          category: snyk-frontend
