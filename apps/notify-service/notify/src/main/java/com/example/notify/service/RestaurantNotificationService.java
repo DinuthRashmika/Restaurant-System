@@ -142,6 +142,42 @@ public class RestaurantNotificationService {
         return notificationRepository.save(notification);
     }
 
+    //Order Ready notification - Restaurant
+    public Notification RestaurantOrderReadyNotification(Notification notification){
+        notification.setTitle("Order Ready for Pickup");
+        notification.setMessage("The recent order " + notification.getRecipientEmail() + " from your restaurant is ready for pickup. Please check your dashboard for more details");
+        notification.setNotificationType("ORDER_READY");
+        notification.setTimestamp(LocalDateTime.now());
+
+        try {
+            if (notification.isSendEmail()) {
+
+                logger.info("Logger - Sending email to " + notification.getRecipientEmail() + " :loggers");
+                emailService.sendEmailToRestaurent(
+                    notification.getRecipientEmail(),   
+                    "Order Ready for Pickup" , 
+                    "The recent order " + notification.getOrderId() + " from your restaurant is ready for pickup. Please check your dashboard for more details",
+                    notification.getOrderId() 
+                ); 
+            }
+
+            if(notification.isSendSMS()){  
+
+                logger.info("Logger - Sending SMS to " + notification.getRecipientPhone() + " :loggers");
+                smsService.sendSMS(
+                    notification.getRecipientPhone(), 
+                   "The recent order " + notification.getOrderId() + " from your restaurant is ready for pickup. Please check your dashboard for more details");
+                
+            }
+
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            logger.error("Logger - Failed to send email", e);
+        }
+
+        return notificationRepository.save(notification);
+    }
+
 
     // // New Order Notification
     // public void RestaurentNewOrderNotification(Notification notification) {
