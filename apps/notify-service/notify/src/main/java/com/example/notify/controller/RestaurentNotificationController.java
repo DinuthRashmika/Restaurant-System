@@ -38,4 +38,11 @@ public class RestaurentNotificationController {
         return ResponseEntity.ok(savedNotification);
     }
 
+    @PostMapping("/order-ready")
+    public ResponseEntity<Notification> RestaurantOrderReadyNotification(@RequestBody Notification notification) {
+        Notification savedNotification = restaurantNotificationService.RestaurantOrderReadyNotification(notification);
+        return ResponseEntity.ok(savedNotification);
+    }
+
+
 }
